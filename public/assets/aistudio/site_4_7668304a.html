@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Center Auto Proteção Veicular | Seu Clube de Benefícios</title>
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-navy: #0d1e38;
+            --secondary-navy: #152b4d;
+            --accent-orange: #f37021;
+            --orange-hover: #d95e12;
+            --text-dark: #222222;
+            --text-light: #ffffff;
+            --bg-light: #f4f7f9;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        h1, h2, h3, h4, .btn {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        body {
+            color: var(--text-dark);
+            line-height: 1.6;
+            background-color: #fff;
+        }
+
+        /* HEADER & NAV */
+        header {
+            background-color: var(--primary-navy);
+            position: relative;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .navbar {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .logo-img {
+            height: 195px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-light);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-orange);
+        }
+
+        .btn-boleto-nav {
+            background-color: var(--accent-orange);
+            color: var(--text-light) !important;
+            padding: 8px 18px;
+            border-radius: 5px;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-boleto-nav:hover {
+            background-color: var(--orange-hover);
+        }
+
+        /* REDES SOCIAIS NA NAV */
+        .nav-socials {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-left: 10px;
+            padding-left: 15px;
+            border-left: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .nav-socials a {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            transition: color 0.3s;
+        }
+
+        .nav-socials a[title="Instagram"]:hover { color: #E4405F; }
+        .nav-socials a[title="WhatsApp"]:hover { color: #25D366; }
+        .nav-socials a[title="Pinterest"]:hover { color: #BD081C; }
+        .nav-socials a[title="YouTube"]:hover { color: #FF0000; }
+
+        /* HERO SECTION */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-navy) 0%, var(--secondary-navy) 100%);
+            color: var(--text-light);
+            padding: 60px 20px;
+        }
+
+        .hero-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .hero-content h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .price-badge {
+            display: inline-block;
+            background-color: var(--accent-orange);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .hero-content p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            text-align: justify;
+        }
+
+        /* CARROSSEL COM COR IGUAL À PALETA DO SITE */
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: var(--primary-navy);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .carousel-track {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            width: 100%;
+            height: 100%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .carousel-slide img {
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+            display: block;
+        }
+
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(13, 30, 56, 0.8);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.3s;
+        }
+
+        .carousel-btn:hover {
+            background: var(--accent-orange);
+        }
+
+        .carousel-btn.prev { left: 10px; }
+        .carousel-btn.next { right: 10px; }
+
+        .carousel-dots {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .dot.active {
+            background: var(--accent-orange);
+            width: 24px;
+            border-radius: 6px;
+        }
+
+        /* FORM LEAD */
+        .lead-card {
+            background: #ffffff;
+            color: var(--text-dark);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .lead-card h3 {
+            text-align: center;
+            color: var(--primary-navy);
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.3s;
+            background-color: #fff;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-orange);
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 38px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-submit {
+            width: 100%;
+            background-color: var(--accent-orange);
+            color: #fff;
+            padding: 14px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--orange-hover);
+        }
+
+        .boleto-box {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+            text-align: center;
+        }
+
+        .btn-boleto-hero {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background-color: #25D366;
+            color: #fff;
+            padding: 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: background 0.3s;
+        }
+
+        .btn-boleto-hero:hover {
+            background-color: #128C7E;
+        }
+
+        /* SEÇÕES GERAIS */
+        section {
+            padding: 70px 20px;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .section-title h2 {
+            font-size: 2.2rem;
+            color: var(--primary-navy);
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+
+        .section-title h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background-color: var(--accent-orange);
+            border-radius: 2px;
+        }
+
+        /* ABOUT SECTION */
+        .about-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .about-card {
+            background: var(--bg-light);
+            padding: 30px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-orange);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .about-card h3 {
+            color: var(--primary-navy);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .about-card h3 i {
+            color: var(--accent-orange);
+        }
+
+        /* VALORES */
+        .valores-container {
+            max-width: 1200px;
+            margin: 40px auto 0;
+        }
+
+        .valores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .valor-item {
+            text-align: center;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .valor-item i {
+            font-size: 2.2rem;
+            color: var(--accent-orange);
+            margin-bottom: 10px;
+        }
+
+        .valor-item h4 {
+            color: var(--primary-navy);
+            margin-bottom: 8px;
+        }
+
+        /* DIFERENCIAIS */
+        .diferenciais-section {
+            background-color: var(--bg-light);
+        }
+
+        .diferenciais-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+        }
+
+        .dif-card {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+
+        .dif-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .dif-card i {
+            font-size: 2.5rem;
+            color: var(--accent-orange);
+            margin-bottom: 15px;
+        }
+
+        .dif-card h3 {
+            color: var(--primary-navy);
+            margin-bottom: 10px;
+        }
+
+        .dif-card ul {
+            list-style: none;
+            padding-left: 0;
+            margin-top: 10px;
+        }
+
+        .dif-card ul li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .dif-card ul li::before {
+            content: "✓";
+            color: var(--accent-orange);
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        /* FOOTER */
+        footer {
+            background-color: var(--primary-navy);
+            color: var(--text-light);
+            padding: 50px 20px 20px;
+        }
+
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-col h4 {
+            color: var(--accent-orange);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            text-align: justify;
+        }
+
+        .footer-col p {
+            opacity: 0.8;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .footer-logo-img {
+            height: 195px;
+            width: auto;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links a {
+            color: #fff;
+            opacity: 0.8;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+            color: var(--accent-orange);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .social-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            background-color: var(--secondary-navy);
+            color: var(--text-light);
+            border-radius: 50%;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .social-links .social-icon[title="Instagram"]:hover {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            color: #fff;
+            transform: translateY(-3px);
+        }
+        .social-links .social-icon[title="WhatsApp"]:hover {
+            background-color: #25D366;
+            color: #fff;
+            transform: translateY(-3px);
+        }
+        .social-links .social-icon[title="Pinterest"]:hover {
+            background-color: #BD081C;
+            color: #fff;
+            transform: translateY(-3px);
+        }
+        .social-links .social-icon[title="YouTube"]:hover {
+            background-color: #FF0000;
+            color: #fff;
+            transform: translateY(-3px);
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        /* MODAL DE ADMINISTRAÇÃO */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #fff;
+            width: 90%;
+            max-width: 700px;
+            padding: 30px;
+            border-radius: 8px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .admin-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .admin-tab {
+            padding: 10px 15px;
+            border: none;
+            background: none;
+            font-weight: 600;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .admin-tab.active {
+            color: var(--accent-orange);
+            border-bottom: 3px solid var(--accent-orange);
+        }
+
+        .admin-section {
+            display: none;
+        }
+
+        .admin-section.active {
+            display: block;
+        }
+
+        .img-grid-admin {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .img-card-admin {
+            position: relative;
+            height: 90px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .img-card-admin img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .btn-del-img {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .alert-box {
+            padding: 12px;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+
+        /* RESPONSIVO */
+        @media (max-width: 900px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+            }
+
+            .carousel-container {
+                height: 260px;
+            }
+
+            .nav-menu {
+                display: none;
+            }
+
+            .hero-content h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header>
+        <nav class="navbar">
+            <a href="#" class="logo">
+                <img src="logo center auto.jpeg" alt="Center Auto Proteção Veicular" class="logo-img">
+            </a>
+            <ul class="nav-menu">
+                <li><a href="#sobre" class="nav-link">Sobre Nós</a></li>
+                <li><a href="#valores" class="nav-link">Valores</a></li>
+                <li><a href="#diferenciais" class="nav-link">Coberturas & Serviços</a></li>
+                <li><a href="https://wa.me/5508005918936?text=Olá,%20gostaria%20de%20solicitar%20a%202ª%20via%20do%20meu%20boleto." target="_blank" rel="noopener noreferrer" class="nav-link btn-boleto-nav"><i class="fa-brands fa-whatsapp"></i> 2ª Via de Boleto</a></li>
+                <li class="nav-socials">
+                    <a href="https://www.instagram.com/centerprotecaoveicular/" target="_blank" rel="noopener noreferrer" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="https://wa.me/5582991945454" target="_blank" rel="noopener noreferrer" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.pinterest.com/centerautoprotecaoveicular/" target="_blank" rel="noopener noreferrer" title="Pinterest"><i class="fa-brands fa-pinterest-p"></i></a>
+                    <a href="https://www.youtube.com/@centerautoprotecaoveicular/" target="_blank" rel="noopener noreferrer" title="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="price-badge">Planos a partir de R$ 49,90/mês</div>
+                <h1>Proteção completa e acessível para o seu veículo.</h1>
+                <p>A Center Auto Proteção Veicular é uma associação que oferece soluções completas e acessíveis para a proteção do seu veículo. Com um compromisso inabalável com a segurança e a tranquilidade de seus associados.</p>
+                
+                <!-- CARROSSEL SUBTITUTO DA IMAGEM ESTÁTICA -->
+                <div class="carousel-container" id="heroCarousel">
+                    <div class="carousel-track" id="carouselTrack"></div>
+                    <button class="carousel-btn prev" id="prevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="carousel-btn next" id="nextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div class="carousel-dots" id="carouselDots"></div>
+                </div>
+            </div>
+
+            <!-- FORMULÁRIO DE COTAÇÃO -->
+            <div class="lead-card">
+                <h3>Solicite uma Cotação</h3>
+                <form id="leadForm">
+                    <div class="form-group">
+                        <label for="nome">Nome Completo</label>
+                        <input type="text" id="nome" class="form-control" placeholder="Seu nome completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefone">Telefone / WhatsApp</label>
+                        <input type="tel" id="telefone" class="form-control" placeholder="(82) 90000-0000" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" class="form-control" placeholder="seuemail@exemplo.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoVeiculo">Tipo de Veículo</label>
+                        <select id="tipoVeiculo" class="form-control" required>
+                            <option value="" disabled selected>Selecione...</option>
+                            <option value="Carro">Carro</option>
+                            <option value="Moto">Moto</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ano">Ano</label>
+                            <input type="number" id="ano" class="form-control" placeholder="Ex: 2022" min="1900" max="2027" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="modelo">Modelo</label>
+                            <input type="text" id="modelo" class="form-control" placeholder="Ex: Onix 1.0" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">Enviar e Cotar Agora</button>
+                </form>
+
+                <div class="boleto-box" id="boleto">
+                    <p style="font-size: 0.85rem; margin-bottom: 8px; color: #666;">Já é associado?</p>
+                    <a href="https://wa.me/5508005918936?text=Olá,%20gostaria%20de%20solicitar%20a%202ª%20via%20do%20meu%20boleto." target="_blank" rel="noopener noreferrer" class="btn-boleto-hero">
+                        <i class="fa-brands fa-whatsapp"></i> Solicitar 2ª Via do Boleto
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SOBRE NÓS -->
+    <section id="sobre">
+        <div class="section-title">
+            <h2>Quem Somos</h2>
+        </div>
+        <div class="about-grid">
+            <div class="about-card">
+                <h3><i class="fa-solid fa-bullseye"></i> Nossa Missão</h3>
+                <p style="text-align: justify;">Proporcionar proteção veicular de excelência, garantindo a tranquilidade e a segurança de nossos associados, por meio de um serviço ético, transparente e eficiente.</p>
+            </div>
+            <div class="about-card">
+                <h3><i class="fa-solid fa-eye"></i> Nossa Visão</h3>
+                <p style="text-align: justify;">Ser referência no mercado de proteção veicular, reconhecida pela qualidade dos serviços, inovação e compromisso com a satisfação de nossos associados.</p>
+            </div>
+        </div>
+
+        <!-- VALORES -->
+        <div class="valores-container" id="valores">
+            <h3 style="text-align: center; color: var(--primary-navy); margin-bottom: 25px;">Nossos Valores</h3>
+            <div class="valores-grid">
+                <div class="valor-item">
+                    <i class="fa-solid fa-handshake"></i>
+                    <h4>Transparência</h4>
+                    <p style="font-size: 0.85rem;">Agimos com clareza e honestidade em todas as nossas relações.</p>
+                </div>
+                <div class="valor-item">
+                    <i class="fa-solid fa-heart"></i>
+                    <h4>Comprometimento</h4>
+                    <p style="font-size: 0.85rem;">Dedicação total à segurança e satisfação de nossos associados.</p>
+                </div>
+                <div class="valor-item">
+                    <i class="fa-solid fa-award"></i>
+                    <h4>Excelência</h4>
+                    <p style="font-size: 0.85rem;">Busca contínua pela melhoria de nossos serviços e processos.</p>
+                </div>
+                <div class="valor-item">
+                    <i class="fa-solid fa-bolt"></i>
+                    <h4>Agilidade</h4>
+                    <p style="font-size: 0.85rem;">Respostas rápidas e eficientes para as demandas de nossos associados.</p>
+                </div>
+                <div class="valor-item">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <h4>Confiança</h4>
+                    <p style="font-size: 0.85rem;">Relacionamentos sólidos baseados na credibilidade e respeito mútuo.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIFERENCIAIS -->
+    <section id="diferenciais" class="diferenciais-section">
+        <div class="section-title">
+            <h2>Nossos Serviços e Benefícios</h2>
+        </div>
+        <div class="diferenciais-grid">
+            <div class="dif-card">
+                <i class="fa-solid fa-shield-halved"></i>
+                <h3>1. Coberturas</h3>
+                <ul>
+                    <li>Roubo, incêndio, furto e fenômeno da natureza</li>
+                    <li>Até 100 mil em danos a terceiros</li>
+                    <li>Em caso de perda total, pagamento 100% da tabela Fipe</li>
+                    <li>Condutor livre (*desde que seja habilitado)</li>
+                    <li>Vidros, para-brisas, faróis, lanternas e retrovisores</li>
+                    <li>Rastreador com acesso liberado</li>
+                </ul>
+            </div>
+            <div class="dif-card">
+                <i class="fa-solid fa-headset"></i>
+                <h3>2. Assistências</h3>
+                <ul>
+                    <li>Carro reserva até 30 dias</li>
+                    <li>Guincho / Reboque até 600 km</li>
+                    <li>Chaveiro</li>
+                    <li>Pane seca, elétrica, mecânica e borracharia</li>
+                    <li>Atendimento nacional 24h</li>
+                </ul>
+            </div>
+            <div class="dif-card">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+                <h3>3. Facilidades</h3>
+                <ul>
+                    <li>Pagamento por meio de boletos bancários enviados pelo WhatsApp e e-mail</li>
+                    <li>Aplicativo com acesso ao rastreamento direto no seu celular</li>
+                    <li>Cobertura em todo o Brasil</li>
+                </ul>
+            </div>
+            <div class="dif-card">
+                <i class="fa-solid fa-comments"></i>
+                <h3>4. Acessibilidades</h3>
+                <ul>
+                    <li>Comunicação clara e rápida</li>
+                    <li>Atendimento sem burocracia e humanizado</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-col">
+                <a href="#">
+                    <img src="logo 2- center auto .jpg" alt="Center Auto Proteção Veicular" class="footer-logo-img">
+                </a>
+                <p style="text-align: justify;">Na Center Auto Proteção Veicular, você não é apenas um cliente, é um associado que conta com o suporte de uma equipe dedicada e a segurança de ter seu patrimônio protegido. Venha fazer parte da nossa associação e dirija com mais tranquilidade!</p>
+            </div>
+            <div class="footer-col">
+                <h4>Navegação</h4>
+                <ul class="footer-links">
+                    <li><a href="#sobre">Sobre Nós</a></li>
+                    <li><a href="#valores">Valores</a></li>
+                    <li><a href="#diferenciais">Coberturas & Serviços</a></li>
+                    <li><a href="https://wa.me/5508005918936?text=Olá,%20gostaria%20de%20solicitar%20a%202ª%20via%20do%20meu%20boleto." target="_blank" rel="noopener noreferrer">2ª Via de Boleto</a></li>
+                    <li><a href="#" id="openAdminBtn" style="opacity:0.4;"><i class="fa-solid fa-lock"></i> Área do Admin</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Atendimento 24h & Contato</h4>
+                <p><i class="fa-brands fa-whatsapp"></i> <a href="https://wa.me/5508005918936" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none;"><strong>0800 591 8936</strong></a></p>
+                <p><i class="fa-brands fa-whatsapp"></i> (82) 99194-5454 </p>
+                <p><i class="fa-solid fa-envelope"></i> centerauto.protecaoveicular@gmail.com</p>
+                
+                <h4 style="margin-top: 20px;">Redes Sociais</h4>
+                <div class="social-links">
+                    <a href="https://www.instagram.com/centerprotecaoveicular/" target="_blank" rel="noopener noreferrer" class="social-icon" title="Instagram">
+                        <i class="fa-brands fa-instagram"></i>
+                    </a>
+                    <a href="https://wa.me/5582991945454" target="_blank" rel="noopener noreferrer" class="social-icon" title="WhatsApp">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </a>
+                    <a href="https://www.pinterest.com/centerautoprotecaoveicular" target="_blank" rel="noopener noreferrer" class="social-icon" title="Pinterest">
+                        <i class="fa-brands fa-pinterest-p"></i>
+                    </a>
+                    <a href="https://www.youtube.com/@centerautoprotecaoveicular/" target="_blank" rel="noopener noreferrer" class="social-icon" title="YouTube">
+                        <i class="fa-brands fa-youtube"></i>
+                    </a>
+                </div>
+
+                <h4 style="margin-top: 20px;">Endereços</h4>
+                <p>
+                    <i class="fa-solid fa-location-dot" style="color: #ff0000;"></i> 
+                    <a href="https://maps.app.goo.gl/5UzcT7xBvweJWKv4A" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none; transition: color 0.3s;" onmouseover="this.style.color='#f37021'" onmouseout="this.style.color='inherit'">
+                        <strong>Maceió/AL:</strong> Av. Juca Sampaio, 2247 / Cond. Shopping Miramar / sl 42 - Cruz das Almas, CEP: 57.038-005
+                    </a>
+                </p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; Center Auto Proteção Veicular - Todos os direitos reservados. Seu clube de benefícios!</p>
+        </div>
+    </footer>
+
+    <!-- PAINEL DE ADMINISTRAÇÃO MODAL -->
+    <div class="modal" id="adminModal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeAdminModal">&times;</span>
+            
+            <!-- ETAPA 1: LOGIN E RESET DE SENHA -->
+            <div id="authContainer">
+                <div id="loginStep">
+                    <h2 style="margin-bottom: 15px; color: var(--primary-navy);">Login do Administrador</h2>
+                    <form id="adminLoginForm">
+                        <div class="form-group">
+                            <label>Usuário</label>
+                            <input type="text" id="adminUser" class="form-control" placeholder="Usuário (Padrão: admin)" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Senha</label>
+                            <input type="password" id="adminPass" class="form-control" placeholder="Senha (Padrão: admin123)" required>
+                            <i class="fa-solid fa-eye password-toggle" id="toggleLoginPass"></i>
+                        </div>
+                        <button type="submit" class="btn-submit">Acessar Painel</button>
+                    </form>
+                </div>
+
+                <div id="resetPassStep" style="display: none;">
+                    <div class="alert-box">
+                        <strong>Alerta de Segurança:</strong> Você está utilizando a senha inicial. Por favor, cadastre uma nova senha com no mínimo 8 dígitos, contendo letras maiúsculas, minúsculas, números e caracteres especiais.
+                    </div>
+                    <h3 style="margin-bottom: 15px; color: var(--primary-navy);">Redefinição Obrigatória de Senha</h3>
+                    <form id="resetPassForm">
+                        <div class="form-group">
+                            <label>Nova Senha</label>
+                            <input type="password" id="newAdminPass" class="form-control" required>
+                            <i class="fa-solid fa-eye password-toggle" id="toggleNewPass"></i>
+                        </div>
+                        <div class="form-group">
+                            <label>Confirmação da Nova Senha</label>
+                            <input type="password" id="confirmAdminPass" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Atualizar Senha e Continuar</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ETAPA 2: DASHBOARD DO ADMIN -->
+            <div id="adminDashboard" style="display: none;">
+                <div class="admin-nav">
+                    <button class="admin-tab active" data-target="tabCarousel">Gerenciar Carrossel</button>
+                    <button class="admin-tab" data-target="tabUsers">Cadastrar Usuários</button>
+                </div>
+
+                <!-- ABA CARROSSEL -->
+                <div class="admin-section active" id="tabCarousel">
+                    <h3 style="color: var(--primary-navy);">Adicionar Nova Imagem</h3>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Inserir via URL</label>
+                        <input type="url" id="imgUrlInput" class="form-control" placeholder="https://exemplo.com/imagem.jpg">
+                    </div>
+                    <div class="form-group">
+                        <label>Ou Upload do Computador</label>
+                        <input type="file" id="imgFileInput" class="form-control" accept="image/*">
+                    </div>
+                    <button type="button" class="btn-submit" id="addImgBtn">Adicionar Imagem</button>
+
+                    <h4 style="margin-top: 25px; color: var(--primary-navy);">Imagens Atuais</h4>
+                    <div class="img-grid-admin" id="adminImgGrid"></div>
+                </div>
+
+                <!-- ABA NOVO USUÁRIO -->
+                <div class="admin-section" id="tabUsers">
+                    <h3 style="color: var(--primary-navy);">Cadastrar Novo Usuário</h3>
+                    <p style="font-size:0.85rem; color:#666; margin-bottom: 15px;">Apenas o e-mail autorizado (<strong>centerauto.protecaoveicular@gmail.com</strong>) tem permissão para ser cadastrado.</p>
+                    <form id="newUserForm">
+                        <div class="form-group">
+                            <label>Nome do Usuário</label>
+                            <input type="text" id="newUserName" class="form-control" placeholder="Nome Completo" required>
+                        </div>
+                        <div class="form-group">
+                            <label>E-mail do Usuário</label>
+                            <input type="email" id="newUserEmail" class="form-control" placeholder="centerauto.protecaoveicular@gmail.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Login de Acesso</label>
+                            <input type="text" id="newUserLogin" class="form-control" placeholder="login.usuario" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Senha Provisória</label>
+                            <input type="password" id="newUserPassword" class="form-control" placeholder="Mínimo 8 caracteres" required>
+                            <i class="fa-solid fa-eye password-toggle" id="toggleUserPass"></i>
+                        </div>
+                        <button type="submit" class="btn-submit">Enviar Convite via E-mail</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS INTEGRADOS DE FUNCIONALIDADES -->
+    <script>
+        // DEFAULT DATA
+        const DEFAULT_IMAGE = "imagem-carro e moto.jpg";
+        let images = JSON.parse(localStorage.getItem('carouselImages')) || [DEFAULT_IMAGE];
+
+        // EMAIL PERMITIDO
+        const ALLOWED_EMAIL = "centerauto.protecaoveicular@gmail.com";
+
+        // CARROSSEL SCRIPT
+        let currentIndex = 0;
+        let autoSlideTimer = null;
+
+        const track = document.getElementById('carouselTrack');
+        const dotsContainer = document.getElementById('carouselDots');
+
+        function renderCarousel() {
+            track.innerHTML = '';
+            dotsContainer.innerHTML = '';
+
+            images.forEach((src, idx) => {
+                const slide = document.createElement('div');
+                slide.className = 'carousel-slide';
+                slide.innerHTML = `<img src="${src}" alt="Imagem Carrossel ${idx + 1}">`;
+                track.appendChild(slide);
+
+                const dot = document.createElement('div');
+                dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+                dot.addEventListener('click', () => goToSlide(idx));
+                dotsContainer.appendChild(dot);
+            });
+
+            updateCarouselPosition();
+            resetTimer();
+        }
+
+        function updateCarouselPosition() {
+            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+            const dots = dotsContainer.querySelectorAll('.dot');
+            dots.forEach((dot, idx) => {
+                dot.classList.toggle('active', idx === currentIndex);
+            });
+        }
+
+        function goToSlide(index) {
+            currentIndex = index;
+            if (currentIndex >= images.length) currentIndex = 0;
+            if (currentIndex < 0) currentIndex = images.length - 1;
+            updateCarouselPosition();
+            resetTimer();
+        }
+
+        function resetTimer() {
+            clearInterval(autoSlideTimer);
+            autoSlideTimer = setInterval(() => {
+                goToSlide(currentIndex + 1);
+            }, 4000);
+        }
+
+        document.getElementById('nextBtn').addEventListener('click', () => goToSlide(currentIndex + 1));
+        document.getElementById('prevBtn').addEventListener('click', () => goToSlide(currentIndex - 1));
+
+        renderCarousel();
+
+        // LEAD FORM SCRIPT
+        document.getElementById('leadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nome').value;
+            const telefone = document.getElementById('telefone').value;
+            const email = document.getElementById('email').value;
+            const tipoVeiculo = document.getElementById('tipoVeiculo').value;
+            const ano = document.getElementById('ano').value;
+            const modelo = document.getElementById('modelo').value;
+            const numeroWhatsApp = "5582991945454";
+
+            const mensagem = `Olá! Gostaria por gentileza, solicitar uma cotação.\n\n` +
+                             `*Nome:* ${nome}\n` +
+                             `*Telefone:* ${telefone}\n` +
+                             `*E-mail:* ${email}\n` +
+                             `*Veículo:* ${tipoVeiculo} - ${modelo} (${ano})`;
+
+            window.location.href = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+            this.reset();
+        });
+
+        // ADMIN MODAL & AUTHENTICATION SCRIPT
+        const modal = document.getElementById('adminModal');
+        const openAdminBtn = document.getElementById('openAdminBtn');
+        const closeAdminModal = document.getElementById('closeAdminModal');
+
+        openAdminBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            modal.style.display = 'flex';
+        });
+
+        closeAdminModal.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+
+        // TOGGLE VISIBILIDADE DAS SENHAS
+        function setupPasswordToggle(inputId, toggleId) {
+            const input = document.getElementById(inputId);
+            const toggle = document.getElementById(toggleId);
+            toggle.addEventListener('click', () => {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    toggle.classList.replace('fa-eye', 'fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    toggle.classList.replace('fa-eye-slash', 'fa-eye');
+                }
+            });
+        }
+
+        setupPasswordToggle('adminPass', 'toggleLoginPass');
+        setupPasswordToggle('newAdminPass', 'toggleNewPass');
+        setupPasswordToggle('newUserPassword', 'toggleUserPass');
+
+        // REGRAS DE SENHA FORTE
+        function validateStrongPassword(password) {
+            const minLength = 8;
+            const hasUpper = /[A-Z]/.test(password);
+            const hasLower = /[a-z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+            return password.length >= minLength && hasUpper && hasLower && hasNumber && hasSpecial;
+        }
+
+        // FLUXO DE AUTENTICAÇÃO DIRETO (SEM 2FA)
+        let storedUser = localStorage.getItem('adminUser') || 'admin';
+        let storedPass = localStorage.getItem('adminPass') || 'admin123';
+        let isDefaultPass = (storedPass === 'admin123');
+
+        document.getElementById('adminLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('adminUser').value;
+            const p = document.getElementById('adminPass').value;
+
+            if (u === storedUser && p === storedPass) {
+                if (isDefaultPass) {
+                    document.getElementById('loginStep').style.display = 'none';
+                    document.getElementById('resetPassStep').style.display = 'block';
+                } else {
+                    openDashboardDirectly();
+                }
+            } else {
+                alert('Credenciais incorretas!');
+            }
+        });
+
+        document.getElementById('resetPassForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newP = document.getElementById('newAdminPass').value;
+            const confP = document.getElementById('confirmAdminPass').value;
+
+            if (newP !== confP) {
+                alert('As senhas não coincidem!');
+                return;
+            }
+
+            if (!validateStrongPassword(newP)) {
+                alert('A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e caracteres especiais.');
+                return;
+            }
+
+            localStorage.setItem('adminPass', newP);
+            storedPass = newP;
+            isDefaultPass = false;
+            alert('Senha alterada com sucesso!');
+
+            openDashboardDirectly();
+        });
+
+        function openDashboardDirectly() {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            renderAdminImgs();
+        }
+
+        // TABS DO ADMIN
+        const tabs = document.querySelectorAll('.admin-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
+            });
+        });
+
+        // MANIPULAÇÃO DE IMAGENS NO ADMIN
+        function renderAdminImgs() {
+            const grid = document.getElementById('adminImgGrid');
+            grid.innerHTML = '';
+
+            images.forEach((src, idx) => {
+                const card = document.createElement('div');
+                card.className = 'img-card-admin';
+                card.innerHTML = `
+                    <img src="${src}" alt="Thumb ${idx}">
+                    <button class="btn-del-img" onclick="deleteImage(${idx})">&times;</button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById('addImgBtn').addEventListener('click', () => {
+            const urlInput = document.getElementById('imgUrlInput');
+            const fileInput = document.getElementById('imgFileInput');
+
+            if (urlInput.value.trim() !== '') {
+                images.push(urlInput.value.trim());
+                saveAndRefresh();
+                urlInput.value = '';
+            } else if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    images.push(e.target.result);
+                    saveAndRefresh();
+                    fileInput.value = '';
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                alert('Insira uma URL ou selecione uma imagem do seu computador.');
+            }
+        });
+
+        window.deleteImage = function(idx) {
+            images.splice(idx, 1);
+            if (images.length === 0) images.push(DEFAULT_IMAGE);
+            saveAndRefresh();
+        };
+
+        function saveAndRefresh() {
+            localStorage.setItem('carouselImages', JSON.stringify(images));
+            renderCarousel();
+            renderAdminImgs();
+        }
+
+        // CADASTRO DE NOVO USUÁRIO COM VERIFICAÇÃO DE E-MAIL DE PERMISSÃO
+        document.getElementById('newUserForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const nome = document.getElementById('newUserName').value;
+            const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
+            const login = document.getElementById('newUserLogin').value;
+            const password = document.getElementById('newUserPassword').value;
+
+            // Validação da permissão do e-mail
+            if (email !== ALLOWED_EMAIL.toLowerCase()) {
+                alert(`Acesso Negado: O e-mail "${email}" não possui permissão de cadastro. Apenas o e-mail autorizador (${ALLOWED_EMAIL}) pode ser cadastrado.`);
+                return;
+            }
+
+            if (!validateStrongPassword(password)) {
+                alert('A senha do novo usuário precisa conter pelo menos 8 dígitos com números, letras maiúsculas, minúsculas e caracteres especiais.');
+                return;
+            }
+
+            // Disparo de mensagem/e-mail para o usuário autorizado
+            const mailSubject = encodeURIComponent("Dados de Acesso - Center Auto");
+            const mailBody = encodeURIComponent(`Olá ${nome},\n\nSeu acesso ao painel admin foi cadastrado com sucesso!\n\nUsuário: ${login}\nSenha: ${password}`);
+            
+            alert(`Usuário ${nome} cadastrado com sucesso! Abrindo cliente de e-mail para confirmação.`);
+            window.location.href = `mailto:${email}?subject=${mailSubject}&body=${mailBody}`;
+
+            this.reset();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "Center Auto Proteção Veicular",
+  "description": "Site institucional e portal de benefícios da Center Auto Proteção Veicular em Maceió/AL. Planos a partir de R$ 49,90, 100% tabela FIPE, assistência 24h e 2ª via de boletos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
