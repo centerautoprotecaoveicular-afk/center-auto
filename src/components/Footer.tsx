@@ -215,10 +215,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin, onOpenBoleto }) => 
           <div className="flex items-center gap-2">
             <span className="text-slate-500">Portal Oficial:</span>
             <a
-              href="https://centerauto.protecaooveicular.ai.studio"
+              href="https://centerauto-protecao-veicular.ai.studio"
               className="text-orange-400 hover:text-orange-300 font-mono transition-colors"
             >
-              centerauto.protecaooveicular.ai.studio
+              centerauto-protecao-veicular.ai.studio
             </a>
           </div>
         </div>

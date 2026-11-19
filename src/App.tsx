@@ -11,11 +11,13 @@ import { CoverageSection } from './components/CoverageSection';
 import { ComparisonTable } from './components/ComparisonTable';
 import { AboutSection } from './components/AboutSection';
 import { VideosSection } from './components/VideosSection';
+import { TestimonialsSection } from './components/TestimonialsSection';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { BoletoModal } from './components/BoletoModal';
 import { AdminModal } from './components/AdminModal';
 import { MobileQuickBar } from './components/MobileQuickBar';
+import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { CarouselSlide, CarouselVideo } from './types';
 import { getStoredCarouselSlides, getStoredCarouselVideoItems } from './utils/storage';
 
@@ -56,8 +58,11 @@ export default function App() {
         {/* Institutional: Quem Somos, Missão, Visão & Valores */}
         <AboutSection />
 
-        {/* Videos Section directly above FAQ */}
+        {/* Videos Section directly above Testimonials */}
         <VideosSection videos={carouselVideos} />
+
+        {/* Customer Testimonials with Ratings & Photos */}
+        <TestimonialsSection />
 
         {/* FAQ: Dúvidas Frequentes */}
         <FaqSection />
@@ -71,6 +76,9 @@ export default function App() {
 
       {/* 4. Mobile Quick Action Floating Bar */}
       <MobileQuickBar onOpenBoletoModal={() => setIsBoletoOpen(true)} />
+
+      {/* 5. Floating WhatsApp Customer Service Button */}
+      <WhatsAppFloatingButton />
 
       {/* 5. Modals */}
       <BoletoModal
