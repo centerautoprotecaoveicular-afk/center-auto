@@ -1,4 +1,10 @@
-import { LeadRecord, CarouselSlide, CarouselVideo } from '../types';
+import {
+  LeadRecord,
+  CarouselSlide,
+  CarouselVideo,
+  CustomerTestimonial,
+  TestimonialStatus,
+} from '../types';
 
 export const ALLOWED_ADMIN_EMAIL = 'centerauto.protecaoveicular@gmail.com';
 export const DEFAULT_ADMIN_USER = 'centerauto';
@@ -361,3 +367,66 @@ export function exportLeadsToCSV(leads: LeadRecord[]) {
   link.click();
   document.body.removeChild(link);
 }
+
+const TESTIMONIALS_STORAGE_KEY = 'centerauto_testimonials';
+
+export function getStoredTestimonials(): CustomerTestimonial[] {
+  try {
+    const raw = localStorage.getItem(TESTIMONIALS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (item): item is CustomerTestimonial =>
+            Boolean(item && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.quote === 'string')
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading testimonials from localStorage', err);
+  }
+  return [];
+}
+
+export function saveStoredTestimonials(items: CustomerTestimonial[]): boolean {
+  try {
+    localStorage.setItem(TESTIMONIALS_STORAGE_KEY, JSON.stringify(items));
+    return true;
+  } catch (err) {
+    console.error('Error saving testimonials to localStorage', err);
+    return false;
+  }
+}
+
+export function submitTestimonial(
+  input: Omit<CustomerTestimonial, 'id' | 'createdAt' | 'status'>
+): CustomerTestimonial {
+  const current = getStoredTestimonials();
+  const newItem: CustomerTestimonial = {
+    ...input,
+    id: `rev_user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    createdAt: Date.now(),
+    status: 'pending',
+  };
+  const updated = [newItem, ...current];
+  saveStoredTestimonials(updated);
+  return newItem;
+}
+
+export function updateTestimonialStatus(
+  id: string,
+  status: TestimonialStatus
+): CustomerTestimonial[] {
+  const current = getStoredTestimonials();
+  const updated = current.map((item) => (item.id === id ? { ...item, status } : item));
+  saveStoredTestimonials(updated);
+  return updated;
+}
+
+export function deleteTestimonialById(id: string): CustomerTestimonial[] {
+  const current = getStoredTestimonials();
+  const updated = current.filter((item) => item.id !== id);
+  saveStoredTestimonials(updated);
+  return updated;
+}
+

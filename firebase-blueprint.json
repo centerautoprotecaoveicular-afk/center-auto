@@ -1,0 +1,292 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Cotação de proteção veicular enviada por um visitante pelo formulário do site.",
+      "type": "object",
+      "properties": {
+        "nome": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nome completo do solicitante."
+        },
+        "telefone": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 30,
+          "description": "Número de WhatsApp com DDD."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 150,
+          "description": "E-mail do solicitante."
+        },
+        "tipoVeiculo": {
+          "type": "string",
+          "enum": ["Carro", "Moto", "Utilitário"],
+          "description": "Categoria do veículo."
+        },
+        "ano": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 20,
+          "description": "Ano de fabricação/modelo do veículo."
+        },
+        "modelo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Marca e modelo do veículo."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Novo", "Contatado", "Convertido"],
+          "description": "Status de atendimento do lead."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de criação definida pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora da última atualização definida pelo servidor."
+        }
+      },
+      "required": ["nome", "telefone", "email", "tipoVeiculo", "ano", "modelo", "status", "createdAt", "updatedAt"]
+    },
+    "CarouselSlide": {
+      "title": "CarouselSlide",
+      "description": "Slide fotográfico e textos promocionais exibidos no carrossel principal.",
+      "type": "object",
+      "properties": {
+        "imageUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350000,
+          "description": "URL da imagem ou imagem JPEG comprimida em base64."
+        },
+        "kicker": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 80,
+          "description": "Subtítulo superior do slide."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Título principal do slide."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Texto descritivo do slide."
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": ["left", "center"],
+          "description": "Alinhamento do texto sobre o slide."
+        },
+        "order": {
+          "type": "integer",
+          "description": "Posição de ordenação do slide no carrossel."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de criação definida pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora da última atualização definida pelo servidor."
+        }
+      },
+      "required": ["imageUrl", "kicker", "title", "description", "textAlign", "order", "createdAt", "updatedAt"]
+    },
+    "CarouselVideo": {
+      "title": "CarouselVideo",
+      "description": "Vídeo exibido na seção de vídeos do corpo do site.",
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "URL do YouTube, Vimeo, vídeo direto ou referência local."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Título do vídeo."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400,
+          "description": "Descrição do vídeo."
+        },
+        "order": {
+          "type": "integer",
+          "description": "Ordem de exibição do vídeo."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de criação definida pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora da última atualização definida pelo servidor."
+        }
+      },
+      "required": ["src", "title", "description", "order", "createdAt", "updatedAt"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Avaliação enviada por usuário com moderação de aprovação pelo administrador.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 60,
+          "description": "Nome do associado avaliador."
+        },
+        "city": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Cidade e UF do associado."
+        },
+        "vehicle": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 50,
+          "description": "Modelo do veículo."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["assistencia", "sinistro", "economia"],
+          "description": "Categoria da avaliação."
+        },
+        "rating": {
+          "type": "integer",
+          "description": "Nota de 1 a 5 estrelas."
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 400,
+          "description": "Texto do depoimento."
+        },
+        "photo": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 350000,
+          "description": "Foto opcional em base64 comprimido ou URL."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Status de moderação do comentário."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de envio definida pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de atualização definida pelo servidor."
+        }
+      },
+      "required": ["name", "city", "vehicle", "category", "rating", "quote", "photo", "status", "createdAt", "updatedAt"]
+    },
+    "AuthorizedUser": {
+      "title": "AuthorizedUser",
+      "description": "Usuário cadastrado pelo administrador master com acesso à edição do site no painel administrativo.",
+      "type": "object",
+      "properties": {
+        "nome": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Nome completo do usuário editor."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 150,
+          "pattern": "^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$",
+          "description": "E-mail Google autorizado (chave do documento em minúsculas)."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["editor", "admin"],
+          "description": "Nível de permissão para edição do site."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Ativo", "Inativo"],
+          "description": "Status de acesso do usuário."
+        },
+        "observacoes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300,
+          "description": "Observações internas do administrador master."
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 150,
+          "description": "E-mail do administrador master que cadastrou o usuário."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora de criação definida pelo servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora da última atualização definida pelo servidor."
+        }
+      },
+      "required": ["nome", "email", "role", "status", "observacoes", "createdBy", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "Cotações e dados de contato (PII) enviados pelos leads. Escrita pública restrita à criação com status Novo; leitura e gestão exclusivas do administrador."
+    },
+    "/carouselSlides/{slideId}": {
+      "schema": { "$ref": "#/entities/CarouselSlide" },
+      "description": "Imagens e textos do carrossel principal. Leitura pública; criação, edição e exclusão restritas ao administrador e usuários autorizados."
+    },
+    "/carouselVideos/{videoId}": {
+      "schema": { "$ref": "#/entities/CarouselVideo" },
+      "description": "Vídeos da seção de vídeos. Leitura pública; criação, edição e exclusão restritas ao administrador e usuários autorizados."
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": { "$ref": "#/entities/Testimonial" },
+      "description": "Avaliações enviadas pelos visitantes. Criação pública sempre com status pending; leitura pública restrita a status approved; moderação exclusiva do administrador."
+    },
+    "/authorizedUsers/{userEmail}": {
+      "schema": { "$ref": "#/entities/AuthorizedUser" },
+      "description": "Cadastro de usuários autorizados na Área do Administrador para edição do site. Gestão exclusiva do administrador master."
+    }
+  }
+}

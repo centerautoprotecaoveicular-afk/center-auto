@@ -101,6 +101,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBoletoModal }) => {
         {/* Zone 3: 1 primary action */}
         <div className="hidden sm:flex items-center gap-3 shrink-0">
           <button
+            type="button"
             onClick={onOpenBoletoModal}
             className="px-4 py-2.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs tracking-wide uppercase transition-all shadow-md shadow-orange-500/25 flex items-center gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
           >
@@ -161,11 +162,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenBoletoModal }) => {
           </a>
           <div className="pt-2">
             <button
+              type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
                 onOpenBoletoModal();
               }}
-              className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg text-center flex items-center justify-center gap-2"
+              className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg text-center flex items-center justify-center gap-2 cursor-pointer"
             >
               <FileText className="w-4 h-4" />
               Solicitar 2ª Via do Boleto

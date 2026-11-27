@@ -64,15 +64,6 @@ export const VideosSection: React.FC<VideosSectionProps> = ({ videos }) => {
                 {/* Video Info Label */}
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
                   <div>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-orange-100 text-orange-700">
-                        Janela #{idx + 1}
-                      </span>
-                      <span className="text-[10px] text-slate-400 uppercase font-mono">
-                        {isUpload ? 'upload' : parsed.type}
-                      </span>
-                    </div>
-
                     <h4 className="font-bold text-sm text-[#0d1e38] group-hover:text-orange-600 transition-colors line-clamp-1">
                       {title}
                     </h4>
@@ -85,6 +76,9 @@ export const VideosSection: React.FC<VideosSectionProps> = ({ videos }) => {
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                     <span className="flex items-center gap-1 text-emerald-600 font-semibold">
                       <Play className="w-3 h-3 fill-current" /> Reprodução Disponível
+                    </span>
+                    <span className="text-[10px] text-slate-400 uppercase font-mono">
+                      {isUpload ? 'upload' : parsed.type}
                     </span>
                   </div>
                 </div>

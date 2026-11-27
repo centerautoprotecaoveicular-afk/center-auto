@@ -30,3 +30,33 @@ export interface LeadRecord extends QuoteData {
   timestamp: number;
   status: 'Novo' | 'Contatado' | 'Convertido';
 }
+
+export type ReviewCategory = 'assistencia' | 'sinistro' | 'economia';
+export type TestimonialStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CustomerTestimonial {
+  id: string;
+  name: string;
+  city: string;
+  vehicle: string;
+  category: ReviewCategory;
+  rating: number;
+  quote: string;
+  photo?: string;
+  createdAt: number;
+  status: TestimonialStatus;
+}
+
+export type AuthorizedUserRole = 'editor' | 'admin';
+export type AuthorizedUserStatus = 'Ativo' | 'Inativo';
+
+export interface AuthorizedUser {
+  email: string;
+  nome: string;
+  role: AuthorizedUserRole;
+  status: AuthorizedUserStatus;
+  observacoes: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}

@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   Lock,
-  Eye,
-  EyeOff,
   Image as ImageIcon,
   Film,
   Users,
@@ -26,28 +24,57 @@ import {
   ArrowDown,
   Upload,
   Loader2,
+  Star,
+  Clock,
+  XCircle,
+  MessageSquareQuote,
 } from 'lucide-react';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider } from '../firebase';
 import {
   ALLOWED_ADMIN_EMAIL,
-  getStoredAdminUser,
-  getStoredAdminPassword,
-  getStoredCarouselSlides,
-  saveStoredCarouselSlides,
-  getStoredCarouselVideoItems,
-  saveStoredCarouselVideoItems,
   parseVideoSource,
-  getStoredLeads,
   exportLeadsToCSV,
 } from '../utils/storage';
+import {
+  getAdminAccessInfo,
+  compressImageToDataUrl,
+  subscribeAdminLeads,
+  updateLeadStatusInFirestore,
+  deleteLeadInFirestore,
+  clearAllLeadsInFirestore,
+  subscribeCarouselSlides,
+  seedDefaultCarouselSlidesIfEmpty,
+  syncAllCarouselSlidesToFirestore,
+  subscribeCarouselVideos,
+  seedDefaultCarouselVideosIfEmpty,
+  syncAllCarouselVideosToFirestore,
+  subscribeAllTestimonials,
+  updateTestimonialStatusInFirestore,
+  deleteTestimonialInFirestore,
+  subscribeAuthorizedUsers,
+  saveAuthorizedUserInFirestore,
+  deleteAuthorizedUserInFirestore,
+} from '../utils/firestoreDb';
 import { saveMediaFile, deleteMediaFile, isIndexedDbMediaRef } from '../utils/mediaDb';
 import { MediaImage, MediaVideoPlayer } from './MediaRenderer';
-import { LeadRecord, CarouselSlide, CarouselVideo } from '../types';
+import {
+  LeadRecord,
+  CarouselSlide,
+  CarouselVideo,
+  CustomerTestimonial,
+  TestimonialStatus,
+  AuthorizedUser,
+  AuthorizedUserRole,
+  AuthorizedUserStatus,
+} from '../types';
 
 interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSlidesUpdate: (slides: CarouselSlide[]) => void;
   onVideosUpdate: (videos: CarouselVideo[]) => void;
+  onTestimonialsUpdate: (items: CustomerTestimonial[]) => void;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -55,15 +82,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onClose,
   onSlidesUpdate,
   onVideosUpdate,
+  onTestimonialsUpdate,
 }) => {
-  // Auth states
+  // Auth states (Firebase Google Auth)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'carousel' | 'videos' | 'users' | 'leads'>('carousel');
-
-  // Login form (do not prefill user or show it in the form)
-  const [user, setUser] = useState('');
-  const [pass, setPass] = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [isMasterSession, setIsMasterSession] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [activeTab, setActiveTab] = useState<'carousel' | 'videos' | 'testimonials' | 'users' | 'leads'>('carousel');
   const [authError, setAuthError] = useState('');
 
   // Carousel slides & text editor
@@ -87,67 +114,158 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [videoFeedback, setVideoFeedback] = useState<{ type: 'loading' | 'success' | 'error'; text: string } | null>(null);
   const [slideFeedback, setSlideFeedback] = useState<{ type: 'loading' | 'success' | 'error'; text: string } | null>(null);
 
-  // New user
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserLogin, setNewUserLogin] = useState('');
-  const [newUserPass, setNewUserPass] = useState('');
+  // Authorized site-editor users database state
+  const [usersList, setUsersList] = useState<AuthorizedUser[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [editingUserEmail, setEditingUserEmail] = useState<string | null>(null);
+  const [userFormName, setUserFormName] = useState('');
+  const [userFormEmail, setUserFormEmail] = useState('');
+  const [userFormRole, setUserFormRole] = useState<AuthorizedUserRole>('editor');
+  const [userFormStatus, setUserFormStatus] = useState<AuthorizedUserStatus>('Ativo');
+  const [userFormNotes, setUserFormNotes] = useState('');
+  const [isSavingUser, setIsSavingUser] = useState(false);
   const [userMsg, setUserMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   // Leads
   const [leads, setLeads] = useState<LeadRecord[]>([]);
 
+  // User-submitted testimonials moderation
+  const [testimonials, setTestimonials] = useState<CustomerTestimonial[]>([]);
+  const [testimonialFilter, setTestimonialFilter] = useState<'all' | TestimonialStatus>('all');
+
   useEffect(() => {
-    if (isOpen) {
-      const loadedVideos = getStoredCarouselVideoItems();
-      setSlides(getStoredCarouselSlides());
-      setVideos(loadedVideos);
-      setTargetVideoPosition(loadedVideos.length > 0 ? '0' : 'new');
-      setLeads(getStoredLeads());
-      setUser(''); // Do not show or prefill user
-      setPass('');
-      setIsLoggedIn(false);
+    if (!isOpen) {
       setAuthError('');
       setVideoFeedback(null);
       setSlideFeedback(null);
-      try {
-        localStorage.setItem('adminUser', 'centerauto');
-        if (!localStorage.getItem('adminPass') || localStorage.getItem('adminPass') === 'admin123') {
-          localStorage.setItem('adminPass', 'Sr2025#4');
-        }
-      } catch {
-        // ignore
-      }
-    } else {
-      setIsLoggedIn(false);
-      setUser('');
-      setPass('');
-      setAuthError('');
-      setVideoFeedback(null);
-      setSlideFeedback(null);
+      setUserMsg(null);
+      return;
     }
+
+    setIsCheckingAuth(true);
+    let unsubLeads: (() => void) | null = null;
+    let unsubSlides: (() => void) | null = null;
+    let unsubVideos: (() => void) | null = null;
+    let unsubTestimonials: (() => void) | null = null;
+    let unsubUsers: (() => void) | null = null;
+
+    const clearSubscriptions = () => {
+      unsubLeads?.();
+      unsubSlides?.();
+      unsubVideos?.();
+      unsubTestimonials?.();
+      unsubUsers?.();
+      unsubLeads = null;
+      unsubSlides = null;
+      unsubVideos = null;
+      unsubTestimonials = null;
+      unsubUsers = null;
+    };
+
+    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearSubscriptions();
+
+      if (!firebaseUser) {
+        setIsLoggedIn(false);
+        setIsMasterSession(false);
+        setAdminEmail('');
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      const access = await getAdminAccessInfo(
+        firebaseUser.email,
+        firebaseUser.emailVerified
+      );
+
+      if (!access.authorized) {
+        setAuthError(
+          `Acesso negado: a conta ${firebaseUser.email || 'selecionada'} não está cadastrada ou ativa para editar o site.`
+        );
+        setIsLoggedIn(false);
+        setIsMasterSession(false);
+        setAdminEmail('');
+        setIsCheckingAuth(false);
+        await signOut(auth);
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setIsMasterSession(access.isMaster);
+      setAdminEmail(firebaseUser.email || ALLOWED_ADMIN_EMAIL);
+      setAuthError('');
+      setIsCheckingAuth(false);
+
+      if (!access.isMaster) {
+        setActiveTab((prev) => (prev === 'carousel' || prev === 'videos' ? prev : 'carousel'));
+      }
+
+      // Ensure default slides and videos are seeded in Firestore
+      void seedDefaultCarouselSlidesIfEmpty();
+      void seedDefaultCarouselVideosIfEmpty();
+
+      unsubSlides = subscribeCarouselSlides((items) => {
+        setSlides(items);
+      });
+      unsubVideos = subscribeCarouselVideos((items) => {
+        setVideos(items);
+        setTargetVideoPosition((prev) =>
+          prev === 'new' || items.length === 0 ? (items.length > 0 ? '0' : 'new') : prev
+        );
+      });
+
+      if (access.isMaster) {
+        unsubLeads = subscribeAdminLeads((items) => {
+          setLeads(items);
+        });
+        unsubTestimonials = subscribeAllTestimonials((items) => {
+          setTestimonials(items);
+        });
+        unsubUsers = subscribeAuthorizedUsers((items) => {
+          setUsersList(items);
+        });
+      }
+    });
+
+    return () => {
+      unsubAuth();
+      clearSubscriptions();
+    };
   }, [isOpen]);
 
-  // Save all adjustments and log out cleanly
-  const handleSaveAndExit = () => {
-    saveStoredCarouselSlides(slides);
-    saveStoredCarouselVideoItems(videos);
-    onSlidesUpdate(slides);
-    onVideosUpdate(videos);
+  // Save all adjustments to Firestore and close
+  const handleSaveAndExit = async () => {
+    try {
+      await Promise.all([
+        syncAllCarouselSlidesToFirestore(slides),
+        syncAllCarouselVideosToFirestore(videos),
+      ]);
+      onSlidesUpdate(slides);
+      onVideosUpdate(videos);
+      setEditingSlideId(null);
+      onClose();
+    } catch (err) {
+      console.error('Erro ao salvar no Firestore:', err);
+      setAuthError('Erro ao salvar alterações no banco de dados.');
+    }
+  };
 
-    setIsLoggedIn(false);
-    setUser('');
-    setPass('');
-    setAuthError('');
+  // Sign out of Firebase admin account and close
+  const handleSignOutAndClose = async () => {
     setEditingSlideId(null);
+    setAuthError('');
+    try {
+      await signOut(auth);
+    } catch {
+      // ignore
+    }
+    setIsLoggedIn(false);
+    setAdminEmail('');
     onClose();
   };
 
-  // Close modal and lock session
+  // Close modal without signing out
   const handleCloseWithoutSaving = () => {
-    setIsLoggedIn(false);
-    setUser('');
-    setPass('');
     setAuthError('');
     setEditingSlideId(null);
     onClose();
@@ -155,38 +273,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setAuthError('');
-
-    const inputUser = user.trim().toLowerCase();
-    const storedUser = getStoredAdminUser().toLowerCase();
-    const storedPass = getStoredAdminPassword();
-
-    const isUserValid = inputUser === 'centerauto' || inputUser === storedUser;
-    const isPassValid = pass === 'Sr2025#4' || pass === storedPass;
-
-    if (isUserValid && isPassValid) {
-      try {
-        localStorage.setItem('adminUser', 'centerauto');
-      } catch {
-        // ignore
-      }
-      setIsLoggedIn(true);
-      setPass('');
-      setAuthError('');
-    } else {
-      setAuthError('Usuário ou senha incorretos.');
+    setIsSigningIn(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      console.error('Erro no login Google:', err);
+      setAuthError('Não foi possível concluir o login com o Google. Verifique se pop-ups estão liberados.');
+    } finally {
+      setIsSigningIn(false);
     }
-  };
-
-  const validateStrongPassword = (p: string) => {
-    const minLength = 8;
-    const hasUpper = /[A-Z]/.test(p);
-    const hasLower = /[a-z]/.test(p);
-    const hasNumber = /[0-9]/.test(p);
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(p);
-    return p.length >= minLength && hasUpper && hasLower && hasNumber && hasSpecial;
   };
 
   // SLIDE TEXT EDITOR HANDLERS
@@ -198,7 +295,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setEditAlign(slide.textAlign || 'left');
   };
 
-  const handleSaveSlideText = (e: React.FormEvent) => {
+  const handleSaveSlideText = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSlideId) return;
 
@@ -216,9 +313,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     });
 
     setSlides(updated);
-    saveStoredCarouselSlides(updated);
     onSlidesUpdate(updated);
     setEditingSlideId(null);
+    try {
+      await syncAllCarouselSlidesToFirestore(updated);
+      setSlideFeedback({ type: 'success', text: 'Textos do slide salvos no banco de dados!' });
+    } catch {
+      setSlideFeedback({ type: 'error', text: 'Erro ao salvar textos do slide no banco.' });
+    }
   };
 
   const handleCancelSlideText = () => {
@@ -226,7 +328,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   // ADD NEW SLIDE VIA URL
-  const handleAddSlideUrl = (e: React.FormEvent) => {
+  const handleAddSlideUrl = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImageUrl.trim()) return;
 
@@ -241,24 +343,28 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     const updated = [...slides, newSlide];
     setSlides(updated);
-    saveStoredCarouselSlides(updated);
     onSlidesUpdate(updated);
-
     setNewImageUrl('');
+    try {
+      await syncAllCarouselSlidesToFirestore(updated);
+      setSlideFeedback({ type: 'success', text: 'Foto adicionada e salva no banco de dados!' });
+    } catch {
+      setSlideFeedback({ type: 'error', text: 'Erro ao salvar foto no banco de dados.' });
+    }
   };
 
-  // ADD NEW SLIDE VIA FILE UPLOAD (stored in IndexedDB to avoid localStorage quota limit)
+  // ADD NEW SLIDE VIA FILE UPLOAD (compressed to JPEG data URL for cross-device Firestore storage)
   const handleSlideFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setSlideFeedback({ type: 'loading', text: `Salvando imagem "${file.name}"...` });
+    setSlideFeedback({ type: 'loading', text: `Otimizando e salvando "${file.name}" no banco...` });
 
     try {
-      const mediaRef = await saveMediaFile(file);
+      const compressedUrl = await compressImageToDataUrl(file, 1280, 340000);
       const newSlide: CarouselSlide = {
         id: `slide_${Date.now()}`,
-        imageUrl: mediaRef,
+        imageUrl: compressedUrl,
         kicker: newKicker.trim() || 'Associação de Benefícios',
         title: newTitle.trim() || 'Nova Foto do Carrossel',
         description: newDesc.trim() || 'Proteção completa e assistência 24h.',
@@ -266,27 +372,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       };
 
       const updated = [...slides, newSlide];
-      const saved = saveStoredCarouselSlides(updated);
-      if (!saved) {
-        await deleteMediaFile(mediaRef);
-        throw new Error('Não foi possível salvar a lista de slides no navegador.');
-      }
-
+      await syncAllCarouselSlidesToFirestore(updated);
       setSlides(updated);
       onSlidesUpdate(updated);
-      setSlideFeedback({ type: 'success', text: `Imagem "${file.name}" salva com sucesso no carrossel!` });
+      setSlideFeedback({ type: 'success', text: `Imagem "${file.name}" salva no banco de dados!` });
     } catch (err) {
       console.error('Erro ao fazer upload de imagem:', err);
       setSlideFeedback({
         type: 'error',
-        text: 'Erro ao salvar a imagem selecionada. Tente novamente.',
+        text: 'Erro ao salvar a imagem selecionada. Tente uma imagem menor ou use URL.',
       });
     } finally {
       e.target.value = '';
     }
   };
 
-  const handleDeleteSlide = (id: string) => {
+  const handleDeleteSlide = async (id: string) => {
     const target = slides.find((s) => s.id === id);
     if (target && isIndexedDbMediaRef(target.imageUrl)) {
       void deleteMediaFile(target.imageUrl);
@@ -294,10 +395,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     const updated = slides.filter((s) => s.id !== id);
     setSlides(updated);
-    saveStoredCarouselSlides(updated);
     onSlidesUpdate(updated);
     if (editingSlideId === id) {
       setEditingSlideId(null);
+    }
+    try {
+      await syncAllCarouselSlidesToFirestore(updated);
+    } catch {
+      setSlideFeedback({ type: 'error', text: 'Erro ao remover slide do banco de dados.' });
     }
   };
 
@@ -338,24 +443,23 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     };
   };
 
-  const handleAddVideoUrl = (e: React.FormEvent) => {
+  const handleAddVideoUrl = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVideoUrl.trim()) return;
 
     const { updated, posLabel } = applyVideoSourceAtPosition(newVideoUrl.trim(), targetVideoPosition);
-    const saved = saveStoredCarouselVideoItems(updated);
-    if (!saved) {
-      setVideoFeedback({ type: 'error', text: 'Não foi possível salvar o link do vídeo.' });
-      return;
+    try {
+      await syncAllCarouselVideosToFirestore(updated);
+      setVideos(updated);
+      onVideosUpdate(updated);
+      setNewVideoUrl('');
+      setVideoFeedback({
+        type: 'success',
+        text: `Vídeo salvo na ${posLabel} no banco de dados!`,
+      });
+    } catch {
+      setVideoFeedback({ type: 'error', text: 'Não foi possível salvar o link do vídeo no banco.' });
     }
-
-    setVideos(updated);
-    onVideosUpdate(updated);
-    setNewVideoUrl('');
-    setVideoFeedback({
-      type: 'success',
-      text: `Vídeo salvo na ${posLabel} com sucesso!`,
-    });
   };
 
   const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -367,23 +471,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       const mediaRef = await saveMediaFile(file);
       const { updated, posLabel } = applyVideoSourceAtPosition(mediaRef, targetVideoPosition);
-      const saved = saveStoredCarouselVideoItems(updated);
-      if (!saved) {
-        await deleteMediaFile(mediaRef);
-        throw new Error('Falha ao gravar lista de vídeos no navegador.');
-      }
-
+      await syncAllCarouselVideosToFirestore(updated);
       setVideos(updated);
       onVideosUpdate(updated);
       setVideoFeedback({
         type: 'success',
-        text: `Vídeo "${file.name}" salvo com sucesso na ${posLabel}!`,
+        text: `Vídeo "${file.name}" salvo na ${posLabel}. Para exibir em outros dispositivos, prefira links do YouTube/Vimeo.`,
       });
     } catch (err) {
       console.error('Erro ao salvar vídeo:', err);
       setVideoFeedback({
         type: 'error',
-        text: 'Não foi possível salvar o vídeo selecionado neste navegador. Verifique o espaço disponível.',
+        text: 'Não foi possível salvar o vídeo selecionado. Verifique o espaço disponível.',
       });
     } finally {
       e.target.value = '';
@@ -402,12 +501,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       const mediaRef = await saveMediaFile(file);
       const { updated } = applyVideoSourceAtPosition(mediaRef, String(index));
-      const saved = saveStoredCarouselVideoItems(updated);
-      if (!saved) {
-        await deleteMediaFile(mediaRef);
-        throw new Error('Falha ao gravar substituição do vídeo.');
-      }
-
+      await syncAllCarouselVideosToFirestore(updated);
       setVideos(updated);
       onVideosUpdate(updated);
       setVideoFeedback({
@@ -435,25 +529,24 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     );
   };
 
-  const handleSaveVideoItemText = (index: number, silent = false) => {
-    const saved = saveStoredCarouselVideoItems(videos);
-    if (!saved) {
+  const handleSaveVideoItemText = async (index: number, silent = false) => {
+    try {
+      await syncAllCarouselVideosToFirestore(videos);
+      onVideosUpdate(videos);
+      if (!silent) {
+        setVideoFeedback({
+          type: 'success',
+          text: `Texto e dados da Posição #${index + 1} salvos no banco de dados!`,
+        });
+      }
+    } catch {
       if (!silent) {
         setVideoFeedback({ type: 'error', text: 'Não foi possível salvar as alterações do vídeo.' });
       }
-      return;
-    }
-
-    onVideosUpdate(videos);
-    if (!silent) {
-      setVideoFeedback({
-        type: 'success',
-        text: `Texto e dados da Posição #${index + 1} salvos com sucesso!`,
-      });
     }
   };
 
-  const handleMoveVideo = (index: number, direction: -1 | 1) => {
+  const handleMoveVideo = async (index: number, direction: -1 | 1) => {
     const targetIdx = index + direction;
     if (targetIdx < 0 || targetIdx >= videos.length) return;
 
@@ -462,15 +555,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     updated.splice(targetIdx, 0, moved);
 
     setVideos(updated);
-    saveStoredCarouselVideoItems(updated);
     onVideosUpdate(updated);
-    setVideoFeedback({
-      type: 'success',
-      text: `Vídeo movido para a Posição #${targetIdx + 1}!`,
-    });
+    try {
+      await syncAllCarouselVideosToFirestore(updated);
+      setVideoFeedback({
+        type: 'success',
+        text: `Vídeo movido para a Posição #${targetIdx + 1}!`,
+      });
+    } catch {
+      setVideoFeedback({ type: 'error', text: 'Erro ao reordenar vídeo no banco.' });
+    }
   };
 
-  const handleDeleteVideo = (index: number) => {
+  const handleDeleteVideo = async (index: number) => {
     const target = videos[index];
     if (target?.src && isIndexedDbMediaRef(target.src)) {
       void deleteMediaFile(target.src);
@@ -478,7 +575,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     const updated = videos.filter((_, idx) => idx !== index);
     setVideos(updated);
-    saveStoredCarouselVideoItems(updated);
     onVideosUpdate(updated);
     if (targetVideoPosition !== 'new') {
       const currentIdx = parseInt(targetVideoPosition, 10);
@@ -487,53 +583,178 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
     }
     setVideoFeedback(null);
+    try {
+      await syncAllCarouselVideosToFirestore(updated);
+    } catch {
+      setVideoFeedback({ type: 'error', text: 'Erro ao remover vídeo do banco de dados.' });
+    }
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const resetUserForm = () => {
+    setEditingUserEmail(null);
+    setUserFormName('');
+    setUserFormEmail('');
+    setUserFormRole('editor');
+    setUserFormStatus('Ativo');
+    setUserFormNotes('');
+  };
+
+  const handleEditUser = (u: AuthorizedUser) => {
+    setEditingUserEmail(u.email);
+    setUserFormName(u.nome);
+    setUserFormEmail(u.email);
+    setUserFormRole(u.role);
+    setUserFormStatus(u.status);
+    setUserFormNotes(u.observacoes);
+    setUserMsg(null);
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserMsg(null);
 
-    const emailTrimmed = newUserEmail.trim().toLowerCase();
-    if (emailTrimmed !== ALLOWED_ADMIN_EMAIL.toLowerCase()) {
+    const cleanName = userFormName.trim();
+    const cleanEmail = userFormEmail.trim().toLowerCase();
+
+    if (cleanName.length < 2) {
+      setUserMsg({ type: 'error', text: 'Informe o nome completo (mínimo 2 caracteres).' });
+      return;
+    }
+    if (cleanEmail.length < 5 || !cleanEmail.includes('@')) {
+      setUserMsg({ type: 'error', text: 'Informe um e-mail Google válido.' });
+      return;
+    }
+    if (cleanEmail === ALLOWED_ADMIN_EMAIL.toLowerCase()) {
       setUserMsg({
         type: 'error',
-        text: `Acesso Negado: Apenas o e-mail autorizado (${ALLOWED_ADMIN_EMAIL}) pode ser cadastrado.`,
+        text: 'O e-mail do Administrador Master já possui acesso permanente.',
       });
       return;
     }
 
-    if (!validateStrongPassword(newUserPass)) {
+    setIsSavingUser(true);
+    try {
+      await saveAuthorizedUserInFirestore(
+        {
+          nome: cleanName,
+          email: cleanEmail,
+          role: userFormRole,
+          status: userFormStatus,
+          observacoes: userFormNotes.trim(),
+          createdByEmail: adminEmail || ALLOWED_ADMIN_EMAIL,
+        },
+        !editingUserEmail
+      );
+
+      setUserMsg({
+        type: 'success',
+        text: editingUserEmail
+          ? `Permissões de "${cleanName}" atualizadas no banco de dados!`
+          : `Usuário "${cleanName}" (${cleanEmail}) cadastrado com acesso para editar o site!`,
+      });
+      resetUserForm();
+    } catch (err) {
+      console.error('Erro ao salvar usuário autorizado:', err);
       setUserMsg({
         type: 'error',
-        text: 'A senha do novo usuário precisa conter pelo menos 8 dígitos com números, letras maiúsculas, minúsculas e caracteres especiais.',
+        text:
+          err instanceof Error && err.message.includes('e-mail')
+            ? err.message
+            : 'Erro ao salvar usuário no Firestore. Verifique o e-mail informado.',
       });
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (u: AuthorizedUser) => {
+    const nextStatus: AuthorizedUserStatus = u.status === 'Ativo' ? 'Inativo' : 'Ativo';
+    try {
+      await saveAuthorizedUserInFirestore(
+        {
+          nome: u.nome,
+          email: u.email,
+          role: u.role,
+          status: nextStatus,
+          observacoes: u.observacoes,
+          createdByEmail: adminEmail || ALLOWED_ADMIN_EMAIL,
+        },
+        false
+      );
+    } catch (err) {
+      console.error('Erro ao alterar status do usuário:', err);
+    }
+  };
+
+  const handleDeleteUser = async (u: AuthorizedUser) => {
+    if (!window.confirm(`Deseja remover o acesso de edição de "${u.nome}" (${u.email})?`)) {
       return;
     }
-
-    const mailSubject = encodeURIComponent('Dados de Acesso - Painel Center Auto');
-    const mailBody = encodeURIComponent(
-      `Olá ${newUserName},\n\nSeu acesso ao painel admin da Center Auto foi cadastrado com sucesso!\n\nUsuário: ${newUserLogin}\nSenha Provisória: ${newUserPass}\n\nFavor realizar o primeiro acesso para alteração.`
-    );
-
-    setUserMsg({
-      type: 'success',
-      text: `Usuário ${newUserName} cadastrado! Abrindo cliente de e-mail para envio das credenciais.`,
-    });
-
-    window.location.href = `mailto:${newUserEmail}?subject=${mailSubject}&body=${mailBody}`;
-
-    setNewUserName('');
-    setNewUserEmail('');
-    setNewUserLogin('');
-    setNewUserPass('');
-  };
-
-  const handleClearLeads = () => {
-    if (window.confirm('Tem certeza de que deseja limpar todo o histórico de leads salvos?')) {
-      localStorage.removeItem('centerauto_leads');
-      setLeads([]);
+    try {
+      await deleteAuthorizedUserInFirestore(u.email);
+      if (editingUserEmail === u.email) {
+        resetUserForm();
+      }
+      setUserMsg({
+        type: 'success',
+        text: `Acesso de "${u.nome}" removido do banco de dados.`,
+      });
+    } catch (err) {
+      console.error('Erro ao excluir usuário:', err);
+      setUserMsg({ type: 'error', text: 'Não foi possível excluir o usuário.' });
     }
   };
+
+  const handleUpdateLeadStatus = async (leadId: string, status: LeadRecord['status']) => {
+    try {
+      await updateLeadStatusInFirestore(leadId, status);
+    } catch (err) {
+      console.error('Erro ao atualizar status do lead:', err);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      await deleteLeadInFirestore(leadId);
+    } catch (err) {
+      console.error('Erro ao excluir lead:', err);
+    }
+  };
+
+  const handleClearLeads = async () => {
+    if (window.confirm('Tem certeza de que deseja limpar todo o histórico de leads salvos no banco de dados?')) {
+      try {
+        await clearAllLeadsInFirestore(leads.map((l) => l.id));
+      } catch (err) {
+        console.error('Erro ao limpar leads:', err);
+      }
+    }
+  };
+
+  const handleModerateTestimonial = async (id: string, status: TestimonialStatus) => {
+    try {
+      await updateTestimonialStatusInFirestore(id, status);
+    } catch (err) {
+      console.error('Erro ao moderar avaliação:', err);
+    }
+  };
+
+  const handleDeleteTestimonial = async (item: CustomerTestimonial) => {
+    if (item.photo && isIndexedDbMediaRef(item.photo)) {
+      void deleteMediaFile(item.photo);
+    }
+    try {
+      await deleteTestimonialInFirestore(item.id);
+    } catch (err) {
+      console.error('Erro ao excluir avaliação:', err);
+    }
+  };
+
+  const pendingTestimonialsCount = testimonials.filter((t) => t.status === 'pending').length;
+  const filteredTestimonials =
+    testimonialFilter === 'all'
+      ? testimonials
+      : testimonials.filter((t) => t.status === testimonialFilter);
 
   const editingSlide = slides.find((s) => s.id === editingSlideId);
 
@@ -584,10 +805,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <Lock className="w-6 h-6" />
                 </div>
                 <h4 className="text-xl font-extrabold text-[#0d1e38]">
-                  Acesso Restrito
+                  Acesso ao Painel do Site
                 </h4>
                 <p className="text-xs text-slate-500 mt-1">
-                  Entre com suas credenciais de administrador da Center Auto.
+                  Entre com a conta Google do administrador master (<strong className="text-slate-700">{ALLOWED_ADMIN_EMAIL}</strong>) ou de um usuário cadastrado para editar o site.
                 </p>
               </div>
 
@@ -598,53 +819,31 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Usuário
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Usuário"
-                    value={user}
-                    onChange={(e) => setUser(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
+              {isCheckingAuth ? (
+                <div className="py-6 flex items-center justify-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  <span>Verificando sessão autorizada...</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Senha
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPass ? 'text' : 'password'}
-                      required
-                      placeholder="••••••••"
-                      value={pass}
-                      onChange={(e) => setPass(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPass(!showPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      title={showPass ? 'Ocultar senha' : 'Ver senha'}
-                    >
-                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
+              ) : (
                 <button
-                  type="submit"
-                  className="w-full py-2.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={isSigningIn}
+                  className="w-full py-3 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
-                  <Lock className="w-4 h-4" />
-                  Acessar Painel
+                  {isSigningIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Conectando com Google...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Entrar com Google</span>
+                    </>
+                  )}
                 </button>
-              </form>
+              )}
             </div>
           ) : (
             // Step 2: Dashboard Content
@@ -677,31 +876,51 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   Vídeos ({videos.length})
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('leads')}
-                  className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                    activeTab === 'leads'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Leads ({leads.length})
-                </button>
+                {isMasterSession && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('leads')}
+                      className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                        activeTab === 'leads'
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Leads ({leads.length})
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('users')}
-                  className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                    activeTab === 'users'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  Usuários
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('testimonials')}
+                      className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                        activeTab === 'testimonials'
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <MessageSquareQuote className="w-4 h-4" />
+                      <span>
+                        Avaliações ({testimonials.length}
+                        {pendingTestimonialsCount > 0 ? ` · ${pendingTestimonialsCount} pendente${pendingTestimonialsCount > 1 ? 's' : ''}` : ''})
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('users')}
+                      className={`pb-3 px-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                        activeTab === 'users'
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      Usuários ({usersList.length})
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Tab 1: Carousel Slides & Text Editor */}
@@ -1037,7 +1256,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         Substituir ou Adicionar Vídeo por Posição
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Escolha em qual posição deseja colocar o vídeo (Janela #1 a #{Math.max(4, videos.length)} ou nova posição), depois cole o link ou selecione o arquivo do computador.
+                        Escolha em qual posição da seção de vídeos do site deseja colocar o vídeo (Posição #1 a #{Math.max(4, videos.length)} ou nova posição), depois cole o link ou selecione o arquivo do computador.
                       </p>
                     </div>
 
@@ -1052,7 +1271,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       >
                         {videos.map((v, i) => (
                           <option key={`${v.id}_${i}`} value={String(i)}>
-                            Substituir Posição #{i + 1} (Janela #{i + 1} — {v.title || `Vídeo 0${i + 1}`})
+                            Substituir Posição #{i + 1} ({v.title || `Vídeo 0${i + 1}`})
                           </option>
                         ))}
                         <option value="new">
@@ -1151,7 +1370,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 border border-orange-200">
-                                    Posição #{idx + 1} (Janela #{idx + 1})
+                                    Posição #{idx + 1}
                                   </span>
                                   <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                                     {isUpload ? 'UPLOAD' : parsed.type.toUpperCase()}
@@ -1304,10 +1523,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-bold text-slate-900 text-sm">
-                        Histórico de Cotações Recebidas
+                        Histórico de Cotações Recebidas ({leads.length})
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Leads salvos localmente no navegador deste dispositivo.
+                        Leads armazenados em tempo real no banco de dados Firestore.
                       </p>
                     </div>
 
@@ -1336,7 +1555,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   {leads.length === 0 ? (
                     <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                       <p className="text-xs text-slate-500">
-                        Nenhuma cotação registrada ainda. As solicitações enviadas pelo formulário aparecerão aqui.
+                        Nenhuma cotação registrada ainda. As solicitações enviadas pelo formulário aparecerão aqui em tempo real.
                       </p>
                     </div>
                   ) : (
@@ -1346,31 +1565,63 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           <tr>
                             <th className="p-3">Data</th>
                             <th className="p-3">Nome</th>
-                            <th className="p-3">WhatsApp</th>
+                            <th className="p-3">Contato</th>
                             <th className="p-3">Veículo</th>
-                            <th className="p-3">Ação</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {leads.map((lead) => (
                             <tr key={lead.id} className="hover:bg-slate-50">
-                              <td className="p-3 text-slate-500 font-mono">
+                              <td className="p-3 text-slate-500 font-mono whitespace-nowrap">
                                 {new Date(lead.timestamp).toLocaleDateString('pt-BR')}
                               </td>
                               <td className="p-3 font-semibold text-slate-900">{lead.nome}</td>
-                              <td className="p-3 text-slate-700 font-mono">{lead.telefone}</td>
+                              <td className="p-3 text-slate-700">
+                                <div className="font-mono">{lead.telefone}</div>
+                                <div className="text-[11px] text-slate-500">{lead.email}</div>
+                              </td>
                               <td className="p-3 text-slate-600">
                                 {lead.tipoVeiculo} - {lead.modelo} ({lead.ano})
                               </td>
                               <td className="p-3">
-                                <a
-                                  href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1"
+                                <select
+                                  value={lead.status}
+                                  onChange={(e) =>
+                                    handleUpdateLeadStatus(
+                                      lead.id,
+                                      e.target.value as LeadRecord['status']
+                                    )
+                                  }
+                                  aria-label={`Status do lead ${lead.nome}`}
+                                  className="px-2 py-1 rounded border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 >
-                                  Abrir WhatsApp <ExternalLink className="w-3 h-3" />
-                                </a>
+                                  <option value="Novo">Novo</option>
+                                  <option value="Contatado">Contatado</option>
+                                  <option value="Convertido">Convertido</option>
+                                </select>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <a
+                                    href={`https://wa.me/55${lead.telefone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-600 hover:text-emerald-700 font-bold inline-flex items-center gap-1 whitespace-nowrap"
+                                  >
+                                    WhatsApp <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteLead(lead.id)}
+                                    className="text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                                    title="Excluir cotação"
+                                    aria-label={`Excluir cotação de ${lead.nome}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -1381,104 +1632,467 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
               )}
 
-              {/* Tab 4: Users Management */}
-              {activeTab === 'users' && (
-                <div className="space-y-4 max-w-md mx-auto">
-                  <div className="text-center">
-                    <h4 className="font-bold text-slate-900 text-base">Cadastrar Novo Usuário</h4>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Apenas o e-mail autorizado (<strong>{ALLOWED_ADMIN_EMAIL}</strong>) tem permissão de cadastro.
-                    </p>
+              {/* Tab 4: Testimonials Moderation */}
+              {activeTab === 'testimonials' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-base">
+                        Moderação de Avaliações ({testimonials.length})
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Comentários enviados pelos visitantes só ficam visíveis no site após você aprovar e ativar.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {(
+                        [
+                          { id: 'all', label: 'Todos' },
+                          { id: 'pending', label: 'Pendentes' },
+                          { id: 'approved', label: 'Ativos' },
+                          { id: 'rejected', label: 'Desativados' },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTestimonialFilter(opt.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            testimonialFilter === opt.id
+                              ? 'bg-[#0d1e38] text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {userMsg && (
-                    <div
-                      className={`p-3 rounded-lg text-xs border ${
-                        userMsg.type === 'error'
-                          ? 'bg-red-50 text-red-700 border-red-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}
-                    >
-                      {userMsg.text}
+                  {filteredTestimonials.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      <p className="text-xs text-slate-500">
+                        Nenhuma avaliação de usuário encontrada neste filtro. Os novos comentários enviados pelo formulário do site aparecerão aqui para sua aprovação.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredTestimonials.map((item) => {
+                        const categoryText =
+                          item.category === 'assistencia'
+                            ? 'Assistência 24h'
+                            : item.category === 'sinistro'
+                            ? 'Colisão e Reparo'
+                            : 'Economia e Adesão';
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-3"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 min-w-0">
+                                {item.photo ? (
+                                  <MediaImage
+                                    src={item.photo}
+                                    alt={item.name}
+                                    className="w-11 h-11 rounded-full object-cover border border-slate-200 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-11 h-11 rounded-full bg-[#0d1e38] text-orange-400 font-bold text-xs flex items-center justify-center shrink-0">
+                                    {item.name
+                                      .trim()
+                                      .split(/\s+/)
+                                      .slice(0, 2)
+                                      .map((p) => p[0])
+                                      .join('')
+                                      .toUpperCase()}
+                                  </div>
+                                )}
+
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h5 className="font-bold text-sm text-slate-900">
+                                      {item.name}
+                                    </h5>
+                                    <span className="text-xs text-slate-500">
+                                      {item.city} · {item.vehicle} · {categoryText}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-3 mt-1 text-xs">
+                                    <span className="inline-flex items-center gap-0.5 text-amber-500">
+                                      {Array.from({ length: 5 }).map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`w-3.5 h-3.5 ${
+                                            i < item.rating
+                                              ? 'fill-amber-400 text-amber-400'
+                                              : 'text-slate-300'
+                                          }`}
+                                        />
+                                      ))}
+                                      <span className="ml-1 font-bold text-slate-700 tabular-nums">
+                                        {item.rating}/5
+                                      </span>
+                                    </span>
+
+                                    <span className="text-slate-400 tabular-nums">
+                                      {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status label with explicit icon */}
+                              <div className="shrink-0">
+                                {item.status === 'approved' && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    Ativo no Site
+                                  </span>
+                                )}
+                                {item.status === 'pending' && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
+                                    <Clock className="w-4 h-4 text-amber-600" />
+                                    Aguardando Aprovação
+                                  </span>
+                                )}
+                                {item.status === 'rejected' && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                    <XCircle className="w-4 h-4 text-slate-500" />
+                                    Desativado
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs sm:text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed">
+                              "{item.quote}"
+                            </p>
+
+                            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                              {item.status !== 'approved' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleModerateTestimonial(item.id, 'approved')}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Aprovar e Ativar
+                                </button>
+                              )}
+
+                              {item.status !== 'rejected' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleModerateTestimonial(item.id, 'rejected')}
+                                  className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  {item.status === 'approved' ? 'Desativar' : 'Rejeitar'}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTestimonial(item)}
+                                className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-red-200"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Excluir
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
+                </div>
+              )}
 
-                  <form onSubmit={handleCreateUser} className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Nome Completo
-                      </label>
+              {/* Tab 5: Authorized Site Editors Database Management */}
+              {activeTab === 'users' && isMasterSession && (
+                <div className="space-y-6">
+                  {/* Form: Add / Edit Authorized Site Editor */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                          <Users className="w-4 h-4 text-orange-500" />
+                          {editingUserEmail
+                            ? 'Editar Usuário com Acesso à Edição'
+                            : 'Cadastrar Usuário para Edição do Site'}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Cadastre o e-mail Google de quem terá permissão para entrar no Painel Administrativo e editar fotos, textos e vídeos do site.
+                        </p>
+                      </div>
+                      {editingUserEmail && (
+                        <button
+                          type="button"
+                          onClick={resetUserForm}
+                          className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                        >
+                          Cancelar Edição
+                        </button>
+                      )}
+                    </div>
+
+                    {userMsg && (
+                      <div
+                        className={`p-3 rounded-lg text-xs border ${
+                          userMsg.type === 'error'
+                            ? 'bg-red-50 text-red-700 border-red-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}
+                      >
+                        {userMsg.text}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSaveUser} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Nome Completo *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            minLength={2}
+                            maxLength={120}
+                            placeholder="Nome do editor ou operador"
+                            value={userFormName}
+                            onChange={(e) => setUserFormName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            E-mail Google Autorizado *
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            minLength={5}
+                            maxLength={150}
+                            disabled={Boolean(editingUserEmail)}
+                            placeholder="editor@gmail.com"
+                            value={userFormEmail}
+                            onChange={(e) => setUserFormEmail(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-slate-100 disabled:text-slate-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Nível de Acesso
+                          </label>
+                          <select
+                            value={userFormRole}
+                            onChange={(e) => setUserFormRole(e.target.value as AuthorizedUserRole)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          >
+                            <option value="editor">Editor do Site (Fotos e Vídeos)</option>
+                            <option value="admin">Administrador de Conteúdo</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Status de Acesso
+                          </label>
+                          <select
+                            value={userFormStatus}
+                            onChange={(e) => setUserFormStatus(e.target.value as AuthorizedUserStatus)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          >
+                            <option value="Ativo">Ativo (Liberado para editar)</option>
+                            <option value="Inativo">Inativo (Acesso bloqueado)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Observações (Opcional)
+                        </label>
+                        <textarea
+                          rows={2}
+                          maxLength={300}
+                          placeholder="Ex: Responsável pela atualização de campanhas e vídeos..."
+                          value={userFormNotes}
+                          onChange={(e) => setUserFormNotes(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        {editingUserEmail && (
+                          <button
+                            type="button"
+                            onClick={resetUserForm}
+                            className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={isSavingUser}
+                          className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                        >
+                          {isSavingUser ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Salvando...</span>
+                            </>
+                          ) : editingUserEmail ? (
+                            <>
+                              <Save className="w-4 h-4" />
+                              <span>Salvar Alterações</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              <span>Cadastrar Usuário Editor</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Authorized Users List */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h5 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                        Usuários Autorizados a Editar o Site ({usersList.length})
+                      </h5>
                       <input
-                        type="text"
-                        required
-                        placeholder="Nome do operador"
-                        value={newUserName}
-                        onChange={(e) => setNewUserName(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        type="search"
+                        placeholder="Buscar por nome ou e-mail..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        className="w-full sm:w-64 px-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        E-mail Autorizado
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        placeholder={ALLOWED_ADMIN_EMAIL}
-                        value={newUserEmail}
-                        onChange={(e) => setNewUserEmail(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
-                    </div>
+                    {usersList.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-slate-500">
+                          Nenhum usuário editor cadastrado ainda.
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Adicione o e-mail Google acima para liberar acesso de edição do site a outros membros da equipe.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {usersList
+                          .filter((u) => {
+                            const term = userSearch.trim().toLowerCase();
+                            if (!term) return true;
+                            return (
+                              u.nome.toLowerCase().includes(term) ||
+                              u.email.toLowerCase().includes(term)
+                            );
+                          })
+                          .map((u) => (
+                            <div
+                              key={u.email}
+                              className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-[#0d1e38] text-orange-400 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {u.nome.slice(0, 2).toUpperCase()}
+                                </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Login de Acesso
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="login.usuario"
-                        value={newUserLogin}
-                        onChange={(e) => setNewUserLogin(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
-                    </div>
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-bold text-sm text-slate-900">
+                                      {u.nome}
+                                    </span>
+                                    <span className="text-[11px] font-bold uppercase text-slate-500">
+                                      {u.role === 'admin' ? 'Administrador' : 'Editor'}
+                                    </span>
+                                    <span
+                                      className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                                        u.status === 'Ativo'
+                                          ? 'text-emerald-700'
+                                          : 'text-red-700'
+                                      }`}
+                                    >
+                                      {u.status === 'Ativo' ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <XCircle className="w-3.5 h-3.5" />
+                                      )}
+                                      {u.status}
+                                    </span>
+                                  </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Senha Provisória (Mínimo 8 caracteres com especiais)
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="Ex: Segredo@2026"
-                        value={newUserPass}
-                        onChange={(e) => setNewUserPass(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      />
-                    </div>
+                                  <p className="text-xs text-slate-600 break-all">{u.email}</p>
 
-                    <button
-                      type="submit"
-                      className="w-full py-2.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-all cursor-pointer shadow-md"
-                    >
-                      Enviar Convite via E-mail
-                    </button>
-                  </form>
+                                  {u.observacoes && (
+                                    <p className="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                                      {u.observacoes}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditUser(u)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUserStatus(u)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold cursor-pointer"
+                                >
+                                  {u.status === 'Ativo' ? 'Bloquear' : 'Ativar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(u)}
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 cursor-pointer"
+                                  title="Remover acesso"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Master Admin Security Info Card */}
-                  <div className="mt-6 pt-5 border-t border-slate-200 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
                     <h5 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Segurança do Administrador Master
+                      Controle de Acesso para Edição do Site
                     </h5>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      E-mail oficial autorizado: <strong className="text-slate-900">{ALLOWED_ADMIN_EMAIL}</strong>
+                    <p className="text-xs text-slate-600">
+                      Administrador Master: <strong className="text-slate-900">{ALLOWED_ADMIN_EMAIL}</strong>
+                      {adminEmail && (
+                        <span className="text-emerald-700 font-semibold ml-2">
+                          (Conectado: {adminEmail})
+                        </span>
+                      )}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      A redefinição de senha é protegida por código de verificação enviado exclusivamente para o e-mail do administrador.
+                      Apenas o e-mail listado acima e os usuários com status <strong>Ativo</strong> cadastrados em <code>/authorizedUsers</code> conseguem autenticar no painel e editar fotos e vídeos do site.
                     </p>
                   </div>
                 </div>
@@ -1492,15 +2106,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           {isLoggedIn ? (
             <>
               <p className="text-xs text-slate-500 text-center sm:text-left">
-                Ao clicar em <strong className="text-slate-700">Salvar e Sair</strong>, todas as alterações são salvas e a senha será solicitada no próximo acesso.
+                Conectado como <strong className="text-slate-700">{adminEmail}</strong>. As alterações são salvas no Firestore.
               </p>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                 <button
                   type="button"
-                  onClick={handleCloseWithoutSaving}
-                  className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  onClick={handleSignOutAndClose}
+                  className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Fechar sem Salvar
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sair da Conta
                 </button>
                 <button
                   type="button"
@@ -1508,8 +2123,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Salvar e Sair</span>
-                  <LogOut className="w-4 h-4" />
+                  <span>Salvar e Fechar</span>
                 </button>
               </div>
             </>

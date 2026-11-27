@@ -12,27 +12,23 @@ import {
   Clock,
   Sparkles,
   Image as ImageIcon,
-  Film,
-  Play,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import { QuoteData, CarouselSlide, CarouselVideo } from '../types';
-import { saveLead } from '../utils/storage';
-import { MediaImage, MediaVideoPlayer } from './MediaRenderer';
+import { QuoteData, CarouselSlide } from '../types';
+import { createLeadInFirestore } from '../utils/firestoreDb';
+import { MediaImage } from './MediaRenderer';
 
 interface HeroProps {
   carouselSlides: CarouselSlide[];
-  carouselVideos: CarouselVideo[];
   onOpenBoletoModal: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   carouselSlides,
-  carouselVideos,
   onOpenBoletoModal,
 }) => {
-  const [mediaTab, setMediaTab] = useState<'photos' | 'videos'>('photos');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [currentVideoSlide, setCurrentVideoSlide] = useState(0);
 
   const [formData, setFormData] = useState<QuoteData>({
     nome: '',
@@ -43,76 +39,80 @@ export const Hero: React.FC<HeroProps> = ({
     modelo: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [whatsappUrl, setWhatsappUrl] = useState('');
 
-  // Clamp indices when slides or videos list changes
+  // Clamp index when slides list changes
   useEffect(() => {
     if (carouselSlides.length > 0 && currentSlide >= carouselSlides.length) {
       setCurrentSlide(0);
     }
   }, [carouselSlides.length, currentSlide]);
 
+  // Auto slide timer for photos
   useEffect(() => {
-    if (carouselVideos.length > 0 && currentVideoSlide >= carouselVideos.length) {
-      setCurrentVideoSlide(0);
-    }
-  }, [carouselVideos.length, currentVideoSlide]);
-
-  // Auto slide timer for photos only
-  useEffect(() => {
-    if (mediaTab !== 'photos' || !carouselSlides || carouselSlides.length <= 1) return;
+    if (!carouselSlides || carouselSlides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [carouselSlides, mediaTab]);
+  }, [carouselSlides]);
 
   const handlePrevSlide = () => {
-    if (mediaTab === 'photos') {
+    if (carouselSlides.length > 0) {
       setCurrentSlide((prev) => (prev - 1 + carouselSlides.length) % carouselSlides.length);
-    } else {
-      if (carouselVideos.length > 0) {
-        setCurrentVideoSlide((prev) => (prev - 1 + carouselVideos.length) % carouselVideos.length);
-      }
     }
   };
 
   const handleNextSlide = () => {
-    if (mediaTab === 'photos') {
+    if (carouselSlides.length > 0) {
       setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
-    } else {
-      if (carouselVideos.length > 0) {
-        setCurrentVideoSlide((prev) => (prev + 1) % carouselVideos.length);
-      }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
 
-    // Store lead locally for association administration
-    saveLead(formData);
-    setSubmitted(true);
+    if (formData.telefone.trim().length < 8) {
+      setSubmitError('Informe um telefone/WhatsApp válido com DDD.');
+      return;
+    }
+    if (formData.ano.trim().length < 2) {
+      setSubmitError('Informe o ano do veículo (ex.: 2022).');
+      return;
+    }
 
-    const numeroWhatsApp = '5582991945454';
-    const mensagem =
-      `*Solicitação de Cotação - Center Auto Proteção Veicular*\n\n` +
-      `👤 *Nome:* ${formData.nome}\n` +
-      `📱 *Telefone / WhatsApp:* ${formData.telefone}\n` +
-      `✉️ *E-mail:* ${formData.email}\n` +
-      `🚗 *Tipo:* ${formData.tipoVeiculo}\n` +
-      `🏷️ *Modelo:* ${formData.modelo}\n` +
-      `📅 *Ano:* ${formData.ano}\n\n` +
-      `Gostaria de receber uma simulação dos planos disponíveis!`;
+    setIsSubmitting(true);
+    try {
+      await createLeadInFirestore(formData);
 
-    const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+      const numeroWhatsApp = '5582991945454';
+      const mensagem =
+        `*Solicitação de Cotação - Center Auto Proteção Veicular*\n\n` +
+        `👤 *Nome:* ${formData.nome}\n` +
+        `📱 *Telefone / WhatsApp:* ${formData.telefone}\n` +
+        `✉️ *E-mail:* ${formData.email}\n` +
+        `🚗 *Tipo:* ${formData.tipoVeiculo}\n` +
+        `🏷️ *Modelo:* ${formData.modelo}\n` +
+        `📅 *Ano:* ${formData.ano}\n\n` +
+        `Gostaria de receber uma simulação dos planos disponíveis!`;
 
-    setTimeout(() => {
-      window.open(url, '_blank');
-      setSubmitted(false);
-    }, 400);
+      const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+      setWhatsappUrl(url);
+      setSubmitted(true);
+
+      setTimeout(() => {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }, 400);
+    } catch (err) {
+      console.error('Erro ao salvar cotação:', err);
+      setSubmitError('Não foi possível registrar sua cotação no momento. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const activeVideo = carouselVideos[currentVideoSlide] || carouselVideos[0];
 
   return (
     <section className="relative bg-gradient-to-br from-[#0a172c] via-[#0d1e38] to-[#152b4d] text-white pt-8 pb-16 lg:py-16 overflow-hidden">
@@ -145,195 +145,97 @@ export const Hero: React.FC<HeroProps> = ({
               </p>
             </div>
 
-            {/* Media Selector & Carousel Box */}
+            {/* Photos Carousel Box */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                {/* Media Switcher: Fotos / Vídeos */}
-                <div className="inline-flex p-1 bg-[#091527] border border-white/10 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setMediaTab('photos')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      mediaTab === 'photos'
-                        ? 'bg-orange-500 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Fotos ({carouselSlides.length})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMediaTab('videos')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      mediaTab === 'videos'
-                        ? 'bg-orange-500 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Film className="w-3.5 h-3.5" />
-                    <span>Vídeos ({carouselVideos.length})</span>
-                  </button>
-                </div>
-
-                <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-                  {mediaTab === 'photos' ? 'Destaques e Coberturas' : 'Apresentação em Vídeo'}
+              <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-orange-400 font-semibold">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Destaques e Coberturas
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {carouselSlides.length > 0 ? `${currentSlide + 1} / ${carouselSlides.length}` : ''}
                 </span>
               </div>
 
-              {/* Visual Showcase (Photos or Videos) */}
+              {/* Visual Showcase (Photos) */}
               <div className="relative w-full h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden bg-slate-900 border border-white/10 shadow-2xl">
-                
-                {/* PHOTOS MODE */}
-                {mediaTab === 'photos' && (
-                  <>
-                    {carouselSlides.map((slide, idx) => (
-                      <div
-                        key={slide.id || idx}
-                        className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                          idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                        }`}
-                      >
-                        <MediaImage
-                          src={slide.imageUrl}
-                          alt={slide.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
-                        {/* Dynamic custom text overlay from the text editor */}
-                        <div
-                          className={`absolute inset-0 bg-gradient-to-t from-[#0d1e38]/95 via-[#0d1e38]/40 to-black/20 flex items-end p-6 sm:p-7 ${
-                            slide.textAlign === 'center' ? 'justify-center text-center' : 'justify-start text-left'
-                          }`}
-                        >
-                          <div className="space-y-1.5 max-w-xl">
-                            {slide.kicker && (
-                              <span className="text-xs uppercase font-extrabold text-orange-400 tracking-wider block">
-                                {slide.kicker}
-                              </span>
-                            )}
-                            <h4 className="text-lg sm:text-2xl font-extrabold text-white leading-tight">
-                              {slide.title}
-                            </h4>
-                            {slide.description && (
-                              <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 mt-1 leading-relaxed">
-                                {slide.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Carousel navigation controls */}
-                    {carouselSlides.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handlePrevSlide}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/70 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/10 cursor-pointer"
-                          aria-label="Slide anterior"
-                        >
-                          <ChevronLeft className="w-5 h-5" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleNextSlide}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/70 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/10 cursor-pointer"
-                          aria-label="Próximo slide"
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
-
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-                          {carouselSlides.map((_, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setCurrentSlide(idx)}
-                              className={`h-2 rounded-full transition-all cursor-pointer ${
-                                idx === currentSlide ? 'w-6 bg-orange-500' : 'w-2 bg-white/40'
-                              }`}
-                              aria-label={`Ir para foto ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {/* VIDEOS MODE */}
-                {mediaTab === 'videos' && (
-                  <div className="w-full h-full relative z-10 bg-black overflow-hidden">
-                    {carouselVideos.length === 0 ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
-                        <Play className="w-10 h-10 text-orange-500 mx-auto opacity-70" />
-                        <h4 className="text-sm font-bold text-white">Nenhum vídeo cadastrado</h4>
-                        <p className="text-xs text-slate-400">
-                          Adicione links do YouTube ou faça upload de vídeos no Painel do Administrador.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <MediaVideoPlayer
-                          key={activeVideo.id || activeVideo.src}
-                          src={activeVideo.src}
-                          title={activeVideo.title || `Vídeo Center Auto ${currentVideoSlide + 1}`}
-                        />
-
-                        {activeVideo?.title && (
-                          <div className="absolute top-3 left-3 z-20 max-w-[80%] pointer-events-none">
-                            <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-950/75 border border-white/15 text-[11px] font-semibold text-white truncate max-w-full">
-                              {activeVideo.title}
-                            </span>
-                          </div>
+                {carouselSlides.map((slide, idx) => (
+                  <div
+                    key={slide.id || idx}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                      idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                    }`}
+                  >
+                    <MediaImage
+                      src={slide.imageUrl}
+                      alt={slide.title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                    {/* Dynamic custom text overlay from the text editor */}
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-t from-[#0d1e38]/95 via-[#0d1e38]/40 to-black/20 flex items-end p-6 sm:p-7 ${
+                        slide.textAlign === 'center' ? 'justify-center text-center' : 'justify-start text-left'
+                      }`}
+                    >
+                      <div className="space-y-1.5 max-w-xl">
+                        {slide.kicker && (
+                          <span className="text-xs uppercase font-extrabold text-orange-400 tracking-wider block">
+                            {slide.kicker}
+                          </span>
                         )}
-
-                        {/* Video carousel navigation controls */}
-                        {carouselVideos.length > 1 && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={handlePrevSlide}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/20 cursor-pointer shadow-lg"
-                              aria-label="Vídeo anterior"
-                            >
-                              <ChevronLeft className="w-5 h-5" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleNextSlide}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/20 cursor-pointer shadow-lg"
-                              aria-label="Próximo vídeo"
-                            >
-                              <ChevronRight className="w-5 h-5" />
-                            </button>
-
-                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/60 px-3 py-1.5 rounded-full border border-white/10">
-                              {carouselVideos.map((_, idx) => (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => setCurrentVideoSlide(idx)}
-                                  className={`h-2 rounded-full transition-all cursor-pointer ${
-                                    idx === currentVideoSlide ? 'w-5 bg-orange-500' : 'w-2 bg-white/40'
-                                  }`}
-                                  aria-label={`Ir para vídeo ${idx + 1}`}
-                                />
-                              ))}
-                            </div>
-                          </>
+                        <h4 className="text-lg sm:text-2xl font-extrabold text-white leading-tight">
+                          {slide.title}
+                        </h4>
+                        {slide.description && (
+                          <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 mt-1 leading-relaxed">
+                            {slide.description}
+                          </p>
                         )}
-                      </>
-                    )}
+                      </div>
+                    </div>
                   </div>
+                ))}
+
+                {/* Carousel navigation controls */}
+                {carouselSlides.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevSlide}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/70 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/10 cursor-pointer"
+                      aria-label="Slide anterior"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNextSlide}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-slate-900/70 hover:bg-orange-500 text-white flex items-center justify-center transition-colors border border-white/10 cursor-pointer"
+                      aria-label="Próximo slide"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                      {carouselSlides.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCurrentSlide(idx)}
+                          className={`h-2 rounded-full transition-all cursor-pointer ${
+                            idx === currentSlide ? 'w-6 bg-orange-500' : 'w-2 bg-white/40'
+                          }`}
+                          aria-label={`Ir para foto ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -379,13 +281,52 @@ export const Hero: React.FC<HeroProps> = ({
                   <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
-                  <h4 className="font-bold text-emerald-900 text-lg">Cotação Enviada!</h4>
+                  <h4 className="font-bold text-emerald-900 text-lg">Cotação Registrada!</h4>
                   <p className="text-xs text-emerald-800">
-                    Estamos redirecionando você para o WhatsApp do nosso consultor...
+                    Seus dados foram salvos no atendimento Center Auto e estamos abrindo o WhatsApp do nosso consultor.
                   </p>
+                  <div className="flex flex-col gap-2 pt-2">
+                    {whatsappUrl && (
+                      <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Abrir WhatsApp Agora
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubmitted(false);
+                        setFormData({
+                          nome: '',
+                          telefone: '',
+                          email: '',
+                          tipoVeiculo: 'Carro',
+                          ano: '',
+                          modelo: '',
+                        });
+                      }}
+                      className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      Enviar outra cotação
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {submitError && (
+                    <div
+                      role="alert"
+                      className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2"
+                    >
+                      <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                      <span>{submitError}</span>
+                    </div>
+                  )}
                   {/* Vehicle Type Selector Tabs */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -514,10 +455,20 @@ export const Hero: React.FC<HeroProps> = ({
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className="w-full py-3.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm uppercase tracking-wide transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-bold text-sm uppercase tracking-wide transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                   >
-                    <Send className="w-4 h-4" />
-                    Enviar e Cotar Agora
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Salvando Cotação...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Enviar e Cotar Agora
+                      </>
+                    )}
                   </button>
                 </form>
               )}

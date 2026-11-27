@@ -1,0 +1,254 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidEmailId(id) {
+      return id is string &&
+        id.size() >= 5 &&
+        id.size() <= 150 &&
+        id.matches('^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isMasterAdmin() {
+      return isVerifiedUser() &&
+        request.auth.token.email is string &&
+        request.auth.token.email.lower() == 'centerauto.protecaoveicular@gmail.com';
+    }
+
+    function isAuthorizedEditor() {
+      return isVerifiedUser() &&
+        request.auth.token.email is string &&
+        exists(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/authorizedUsers/$(request.auth.token.email.lower())).data.status == 'Ativo';
+    }
+
+    function isAdmin() {
+      return isMasterAdmin() || isAuthorizedEditor();
+    }
+
+    // --- Validation Blueprints ---
+    function isValidLead(data) {
+      return data.keys().hasAll([
+          'nome', 'telefone', 'email', 'tipoVeiculo', 'ano', 'modelo', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'nome', 'telefone', 'email', 'tipoVeiculo', 'ano', 'modelo', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 120 &&
+        data.telefone is string && data.telefone.size() >= 8 && data.telefone.size() <= 30 &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 150 &&
+        data.tipoVeiculo in ['Carro', 'Moto', 'Utilitário'] &&
+        data.ano is string && data.ano.size() >= 2 && data.ano.size() <= 20 &&
+        data.modelo is string && data.modelo.size() >= 1 && data.modelo.size() <= 100 &&
+        data.status in ['Novo', 'Contatado', 'Convertido'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCarouselSlide(data) {
+      return data.keys().hasAll([
+          'imageUrl', 'kicker', 'title', 'description', 'textAlign', 'order', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'imageUrl', 'kicker', 'title', 'description', 'textAlign', 'order', 'createdAt', 'updatedAt'
+        ]) &&
+        data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 350000 &&
+        data.kicker is string && data.kicker.size() <= 80 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.description is string && data.description.size() <= 400 &&
+        data.textAlign in ['left', 'center'] &&
+        data.order is int && data.order >= 0 && data.order <= 1000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCarouselVideo(data) {
+      return data.keys().hasAll([
+          'src', 'title', 'description', 'order', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'src', 'title', 'description', 'order', 'createdAt', 'updatedAt'
+        ]) &&
+        data.src is string && data.src.size() >= 1 && data.src.size() <= 2048 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.description is string && data.description.size() <= 400 &&
+        data.order is int && data.order >= 0 && data.order <= 1000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTestimonial(data) {
+      return data.keys().hasAll([
+          'name', 'city', 'vehicle', 'category', 'rating', 'quote', 'photo', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'name', 'city', 'vehicle', 'category', 'rating', 'quote', 'photo', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.name is string && data.name.size() >= 3 && data.name.size() <= 60 &&
+        data.city is string && data.city.size() >= 2 && data.city.size() <= 50 &&
+        data.vehicle is string && data.vehicle.size() >= 2 && data.vehicle.size() <= 50 &&
+        data.category in ['assistencia', 'sinistro', 'economia'] &&
+        data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+        data.quote is string && data.quote.size() >= 15 && data.quote.size() <= 400 &&
+        data.photo is string && data.photo.size() <= 350000 &&
+        data.status in ['pending', 'approved', 'rejected'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAuthorizedUser(data) {
+      return data.keys().hasAll([
+          'nome', 'email', 'role', 'status', 'observacoes', 'createdBy', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'nome', 'email', 'role', 'status', 'observacoes', 'createdBy', 'createdAt', 'updatedAt'
+        ]) &&
+        data.nome is string && data.nome.size() >= 2 && data.nome.size() <= 120 &&
+        isValidEmailId(data.email) &&
+        data.role in ['editor', 'admin'] &&
+        data.status in ['Ativo', 'Inativo'] &&
+        data.observacoes is string && data.observacoes.size() <= 300 &&
+        data.createdBy is string && data.createdBy.size() >= 5 && data.createdBy.size() <= 150 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // Connection health check document
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Admin-managed site editors database
+    match /authorizedUsers/{userEmail} {
+      allow get: if isValidEmailId(userEmail) &&
+        isVerifiedUser() &&
+        (isMasterAdmin() || (request.auth.token.email is string && request.auth.token.email.lower() == userEmail));
+      allow list: if isMasterAdmin() ||
+        (isVerifiedUser() && request.auth.token.email is string && existing().email == request.auth.token.email.lower());
+      allow create: if isValidEmailId(userEmail) &&
+        isValidAuthorizedUser(incoming()) &&
+        isMasterAdmin() &&
+        incoming().email == userEmail &&
+        incoming().createdBy == request.auth.token.email.lower() &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidEmailId(userEmail) &&
+        isValidAuthorizedUser(incoming()) &&
+        isMasterAdmin() &&
+        incoming().email == existing().email &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'nome', 'role', 'status', 'observacoes', 'updatedAt'
+        ]);
+      allow delete: if isValidEmailId(userEmail) && isMasterAdmin();
+    }
+
+    // Leads (PII protected: public create-only with status 'Novo', admin-only read/update/delete)
+    match /leads/{leadId} {
+      allow get: if isValidId(leadId) && isAdmin();
+      allow list: if isMasterAdmin();
+      allow create: if isValidId(leadId) &&
+        isValidLead(incoming()) &&
+        incoming().status == 'Novo' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(leadId) &&
+        isValidLead(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isValidId(leadId) && isAdmin();
+    }
+
+    // Carousel Slides (public read, authorized editor/admin write)
+    match /carouselSlides/{slideId} {
+      allow get: if isValidId(slideId);
+      allow list: if true;
+      allow create: if isValidId(slideId) &&
+        isValidCarouselSlide(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(slideId) &&
+        isValidCarouselSlide(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'imageUrl', 'kicker', 'title', 'description', 'textAlign', 'order', 'updatedAt'
+        ]);
+      allow delete: if isValidId(slideId) && isAdmin();
+    }
+
+    // Carousel Videos (public read, authorized editor/admin write)
+    match /carouselVideos/{videoId} {
+      allow get: if isValidId(videoId);
+      allow list: if true;
+      allow create: if isValidId(videoId) &&
+        isValidCarouselVideo(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(videoId) &&
+        isValidCarouselVideo(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'src', 'title', 'description', 'order', 'updatedAt'
+        ]);
+      allow delete: if isValidId(videoId) && isAdmin();
+    }
+
+    // Testimonials (public create with 'pending', public read only when 'approved', admin moderation)
+    match /testimonials/{testimonialId} {
+      allow get: if isValidId(testimonialId) && (existing().status == 'approved' || isAdmin());
+      allow list: if existing().status == 'approved' || isMasterAdmin();
+      allow create: if isValidId(testimonialId) &&
+        isValidTestimonial(incoming()) &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(testimonialId) &&
+        isValidTestimonial(incoming()) &&
+        isAdmin() &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isValidId(testimonialId) && isAdmin();
+    }
+  }
+}
